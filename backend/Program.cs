@@ -1,5 +1,6 @@
 using System.Text;
 using backend.Data;
+using backend.Enums;
 using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -16,8 +17,9 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 
-// Serviço de Autenticação JWT
+// Serviços da Aplicação
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<RelatorioService>();
 
 // Configuração da Autenticação via JWT Bearer
 var jwtKey = builder.Configuration["Jwt:Key"]!;
@@ -91,12 +93,20 @@ app.MapControllers();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    
+
+    // Aplica as migrations criando o banco de dados e as tabelas caso não existam
+    context.Database.Migrate();
+
     // Garante a existência do grupo
     var grupo = context.GruposEmpresas.FirstOrDefault(g => g.Nome == "Atos Capital");
     if (grupo == null)
     {
-        grupo = new GrupoEmpresa { Nome = "Atos Capital" };
+        grupo = new GrupoEmpresa 
+        { 
+            Nome = "Atos Capital",
+            IdExterno = "GRP-ATOS-001",
+            Tipo = TipoGrupoEnum.MATRIZ
+        };
         context.GruposEmpresas.Add(grupo);
         context.SaveChanges();
     }
@@ -109,16 +119,18 @@ using (var scope = app.Services.CreateScope())
             {
                 Nome = "Admin Atos",
                 Email = "admin@atos.com",
-                Senha = "123456",
-                Papel = PapelUsuario.Admin,
+                SenhaHash = "123456",
+                IdExterno = "USR-ADM-001",
+                Papel = PapelEnum.ADMIN,
                 GrupoEmpresaId = grupo.Id
             },
             new Usuario
             {
                 Nome = "Cliente Teste",
                 Email = "cliente@atos.com",
-                Senha = "123456",
-                Papel = PapelUsuario.Cliente,
+                SenhaHash = "123456",
+                IdExterno = "USR-CLI-001",
+                Papel = PapelEnum.CLIENTE,
                 GrupoEmpresaId = grupo.Id
             }
         );

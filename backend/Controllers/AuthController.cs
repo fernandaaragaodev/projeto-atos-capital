@@ -1,6 +1,5 @@
 using backend.Data;
 using backend.DTOs;
-using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -21,18 +20,24 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult<TokenResponseDto>> Login([FromBody] LoginDto login)
+    public async Task<ActionResult<TokenResponseDto>> Login([FromBody] LoginDto dto)
     {
-        // Busca o usuário comparando o e-mail (insensível a maiúsculas/minúsculas) e a senha
         var usuario = await _context.Usuarios
-            .FirstOrDefaultAsync(u => u.Email.ToLower() == login.Email.ToLower() && u.Senha == login.Senha);
+            .FirstOrDefaultAsync(u => u.Email == dto.Email && u.SenhaHash == dto.Senha);
 
         if (usuario == null)
-            return Unauthorized("Usuário ou senha inválidos.");
+        {
+            return Unauthorized("E-mail ou senha inválidos.");
+        }
 
-        // Gera o token JWT com as Claims do usuário e o seu Papel (Role)
-        var token = _authService.GerarTokenJwt(usuario);
+        var token = _authService.GerarToken(usuario);
 
-        return Ok(new TokenResponseDto(token, usuario.Nome, usuario.Email, usuario.Papel));
+        return Ok(new TokenResponseDto(
+            token,
+            usuario.Nome,
+            usuario.Email,
+            usuario.Papel,
+            usuario.GrupoEmpresaId
+        ));
     }
 }

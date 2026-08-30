@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using backend.Data;
@@ -11,9 +12,11 @@ using backend.Data;
 namespace backend.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260830224605_AtualizacaoModeloV10")]
+    partial class AtualizacaoModeloV10
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -32,9 +35,6 @@ namespace backend.Migrations
 
                     b.Property<int?>("AgenteId")
                         .HasColumnType("integer");
-
-                    b.Property<DateTime?>("AguardandoDesde")
-                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Categoria")
                         .IsRequired()
@@ -57,12 +57,6 @@ namespace backend.Migrations
                     b.Property<int>("GrupoEmpresaId")
                         .HasColumnType("integer");
 
-                    b.Property<DateTime?>("PrazoResolucao")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<DateTime?>("PrazoResposta")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<int>("Prioridade")
                         .HasColumnType("integer");
 
@@ -70,11 +64,8 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<DateTime?>("ResolvidoEm")
+                    b.Property<DateTime>("SlaPrazo")
                         .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("SlaCategoriaId")
-                        .HasColumnType("integer");
 
                     b.Property<int>("Status")
                         .HasColumnType("integer");
@@ -87,8 +78,6 @@ namespace backend.Migrations
                     b.HasIndex("AgenteId");
 
                     b.HasIndex("GrupoEmpresaId");
-
-                    b.HasIndex("SlaCategoriaId");
 
                     b.HasIndex("UsuarioId");
 
@@ -103,23 +92,11 @@ namespace backend.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("IdExterno")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<int?>("MatrizId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("Tipo")
-                        .HasColumnType("integer");
-
                     b.HasKey("Id");
-
-                    b.HasIndex("MatrizId");
 
                     b.ToTable("GruposEmpresas");
                 });
@@ -173,7 +150,6 @@ namespace backend.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CampoAlterado")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<int>("ChamadoId")
@@ -186,23 +162,17 @@ namespace backend.Migrations
                         .HasColumnType("integer");
 
                     b.Property<string>("ValorAnterior")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<string>("ValorNovo")
-                        .IsRequired()
                         .HasColumnType("text");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ChamadoId");
-
-                    b.HasIndex("UsuarioId");
-
                     b.ToTable("LogsAuditoria");
                 });
 
-            modelBuilder.Entity("backend.Models.SLACategoria", b =>
+            modelBuilder.Entity("backend.Models.SlaCategoria", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -221,15 +191,15 @@ namespace backend.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
-                    b.Property<int>("TempoResolucao")
+                    b.Property<int>("TempoResolucaoMinutos")
                         .HasColumnType("integer");
 
-                    b.Property<int>("TempoResposta")
+                    b.Property<int>("TempoRespostaMinutos")
                         .HasColumnType("integer");
 
                     b.HasKey("Id");
 
-                    b.ToTable("SLACategorias");
+                    b.ToTable("SlaCategorias");
                 });
 
             modelBuilder.Entity("backend.Models.Usuario", b =>
@@ -247,10 +217,6 @@ namespace backend.Migrations
                     b.Property<int>("GrupoEmpresaId")
                         .HasColumnType("integer");
 
-                    b.Property<string>("IdExterno")
-                        .IsRequired()
-                        .HasColumnType("text");
-
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasColumnType("text");
@@ -258,7 +224,7 @@ namespace backend.Migrations
                     b.Property<int>("Papel")
                         .HasColumnType("integer");
 
-                    b.Property<string>("SenhaHash")
+                    b.Property<string>("Senha")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -272,23 +238,18 @@ namespace backend.Migrations
             modelBuilder.Entity("backend.Models.Chamado", b =>
                 {
                     b.HasOne("backend.Models.Usuario", "Agente")
-                        .WithMany("ChamadosAtendidos")
+                        .WithMany()
                         .HasForeignKey("AgenteId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("backend.Models.GrupoEmpresa", "GrupoEmpresa")
-                        .WithMany("Chamados")
+                        .WithMany()
                         .HasForeignKey("GrupoEmpresaId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("backend.Models.SLACategoria", "SlaCategoria")
-                        .WithMany("Chamados")
-                        .HasForeignKey("SlaCategoriaId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("backend.Models.Usuario", "Usuario")
-                        .WithMany("ChamadosCriados")
+                        .WithMany()
                         .HasForeignKey("UsuarioId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -297,31 +258,19 @@ namespace backend.Migrations
 
                     b.Navigation("GrupoEmpresa");
 
-                    b.Navigation("SlaCategoria");
-
                     b.Navigation("Usuario");
-                });
-
-            modelBuilder.Entity("backend.Models.GrupoEmpresa", b =>
-                {
-                    b.HasOne("backend.Models.GrupoEmpresa", "Matriz")
-                        .WithMany("Filiais")
-                        .HasForeignKey("MatrizId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Matriz");
                 });
 
             modelBuilder.Entity("backend.Models.Interacao", b =>
                 {
                     b.HasOne("backend.Models.Usuario", "Autor")
-                        .WithMany("Interacoes")
+                        .WithMany()
                         .HasForeignKey("AutorId")
-                        .OnDelete(DeleteBehavior.Restrict)
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("backend.Models.Chamado", "Chamado")
-                        .WithMany("Interacoes")
+                        .WithMany()
                         .HasForeignKey("ChamadoId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -331,66 +280,15 @@ namespace backend.Migrations
                     b.Navigation("Chamado");
                 });
 
-            modelBuilder.Entity("backend.Models.LogAuditoria", b =>
-                {
-                    b.HasOne("backend.Models.Chamado", "Chamado")
-                        .WithMany("LogsAuditoria")
-                        .HasForeignKey("ChamadoId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("backend.Models.Usuario", "Usuario")
-                        .WithMany("LogsAuditoria")
-                        .HasForeignKey("UsuarioId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Chamado");
-
-                    b.Navigation("Usuario");
-                });
-
             modelBuilder.Entity("backend.Models.Usuario", b =>
                 {
                     b.HasOne("backend.Models.GrupoEmpresa", "GrupoEmpresa")
-                        .WithMany("Usuarios")
+                        .WithMany()
                         .HasForeignKey("GrupoEmpresaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.Navigation("GrupoEmpresa");
-                });
-
-            modelBuilder.Entity("backend.Models.Chamado", b =>
-                {
-                    b.Navigation("Interacoes");
-
-                    b.Navigation("LogsAuditoria");
-                });
-
-            modelBuilder.Entity("backend.Models.GrupoEmpresa", b =>
-                {
-                    b.Navigation("Chamados");
-
-                    b.Navigation("Filiais");
-
-                    b.Navigation("Usuarios");
-                });
-
-            modelBuilder.Entity("backend.Models.SLACategoria", b =>
-                {
-                    b.Navigation("Chamados");
-                });
-
-            modelBuilder.Entity("backend.Models.Usuario", b =>
-                {
-                    b.Navigation("ChamadosAtendidos");
-
-                    b.Navigation("ChamadosCriados");
-
-                    b.Navigation("Interacoes");
-
-                    b.Navigation("LogsAuditoria");
                 });
 #pragma warning restore 612, 618
         }

@@ -8,19 +8,19 @@ namespace backend.Services;
 
 public class AuthService
 {
-    private readonly IConfiguration _configuration;
+    private readonly IConfiguration _config;
 
-    public AuthService(IConfiguration configuration)
+    public AuthService(IConfiguration config)
     {
-        _configuration = configuration;
+        _config = config;
     }
 
-    public string GerarTokenJwt(Usuario usuario)
+    public string GerarToken(Usuario usuario)
     {
         var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]!);
+        var key = Encoding.UTF8.GetBytes(_config["Jwt:Key"]!);
 
-        var claims = new List<Claim>
+        var claims = new[]
         {
             new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
             new Claim(ClaimTypes.Name, usuario.Nome),
@@ -33,8 +33,8 @@ public class AuthService
         {
             Subject = new ClaimsIdentity(claims),
             Expires = DateTime.UtcNow.AddHours(8),
-            Issuer = _configuration["Jwt:Issuer"],
-            Audience = _configuration["Jwt:Audience"],
+            Issuer = _config["Jwt:Issuer"],
+            Audience = _config["Jwt:Audience"],
             SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
         };
 

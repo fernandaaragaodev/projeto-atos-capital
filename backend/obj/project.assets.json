@@ -2703,11 +2703,11 @@
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "D:\\UNIT\\2026.2\\Residência 3\\Atos Capital\\Sistema Atos Capital\\backend\\backend.csproj",
+      "projectUniqueName": "D:\\projetos\\Atos Capital\\Sistema Atos Capital\\backend\\backend.csproj",
       "projectName": "backend",
-      "projectPath": "D:\\UNIT\\2026.2\\Residência 3\\Atos Capital\\Sistema Atos Capital\\backend\\backend.csproj",
+      "projectPath": "D:\\projetos\\Atos Capital\\Sistema Atos Capital\\backend\\backend.csproj",
       "packagesPath": "C:\\Users\\Home\\.nuget\\packages\\",
-      "outputPath": "D:\\UNIT\\2026.2\\Residência 3\\Atos Capital\\Sistema Atos Capital\\backend\\obj\\",
+      "outputPath": "D:\\projetos\\Atos Capital\\Sistema Atos Capital\\backend\\obj\\",
       "projectStyle": "PackageReference",
       "configFilePaths": [
         "C:\\Users\\Home\\AppData\\Roaming\\NuGet\\NuGet.Config"
