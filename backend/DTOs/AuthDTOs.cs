@@ -3,8 +3,7 @@ using backend.Enums;
 namespace backend.DTOs;
 
 public record LoginDto(
-    string Email,
-    string Senha
+    string Email
 );
 
 public record TokenResponseDto(

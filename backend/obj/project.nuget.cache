@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "8tgd8naHt7o=",
+  "dgSpecHash": "EjffN+m9xx8=",
   "success": true,
-  "projectFilePath": "D:\\projetos\\Atos Capital\\Sistema Atos Capital\\backend\\backend.csproj",
+  "projectFilePath": "D:\\Projetos\\Atos Capital\\Sistema Atos Capital\\backend\\backend.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Home\\.nuget\\packages\\humanizer.core\\2.14.1\\humanizer.core.2.14.1.nupkg.sha512",
     "C:\\Users\\Home\\.nuget\\packages\\microsoft.aspnetcore.authentication.jwtbearer\\9.0.0\\microsoft.aspnetcore.authentication.jwtbearer.9.0.0.nupkg.sha512",

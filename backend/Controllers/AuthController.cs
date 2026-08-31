@@ -23,7 +23,7 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<TokenResponseDto>> Login([FromBody] LoginDto dto)
     {
         var usuario = await _context.Usuarios
-            .FirstOrDefaultAsync(u => u.Email == dto.Email && u.SenhaHash == dto.Senha);
+            .FirstOrDefaultAsync(u => u.Email == dto.Email);
 
         if (usuario == null)
         {

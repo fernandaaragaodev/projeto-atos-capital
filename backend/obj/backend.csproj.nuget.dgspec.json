@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "D:\\projetos\\Atos Capital\\Sistema Atos Capital\\backend\\backend.csproj": {}
+    "D:\\Projetos\\Atos Capital\\Sistema Atos Capital\\backend\\backend.csproj": {}
   },
   "projects": {
-    "D:\\projetos\\Atos Capital\\Sistema Atos Capital\\backend\\backend.csproj": {
+    "D:\\Projetos\\Atos Capital\\Sistema Atos Capital\\backend\\backend.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "D:\\projetos\\Atos Capital\\Sistema Atos Capital\\backend\\backend.csproj",
+        "projectUniqueName": "D:\\Projetos\\Atos Capital\\Sistema Atos Capital\\backend\\backend.csproj",
         "projectName": "backend",
-        "projectPath": "D:\\projetos\\Atos Capital\\Sistema Atos Capital\\backend\\backend.csproj",
+        "projectPath": "D:\\Projetos\\Atos Capital\\Sistema Atos Capital\\backend\\backend.csproj",
         "packagesPath": "C:\\Users\\Home\\.nuget\\packages\\",
-        "outputPath": "D:\\projetos\\Atos Capital\\Sistema Atos Capital\\backend\\obj\\",
+        "outputPath": "D:\\Projetos\\Atos Capital\\Sistema Atos Capital\\backend\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\Home\\AppData\\Roaming\\NuGet\\NuGet.Config"
