@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: atos-capital-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: atoscapital
+    ports:
+      - "5433:5432"
+    volumes:
+      - atos-capital-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d atoscapital"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  atos-capital-db-data:

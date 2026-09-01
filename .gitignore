@@ -1,16 +1,16 @@
-# C# / .NET
-**/bin/
-**/obj/
-**/.vs/
-**/.vscode/
-appsettings.Development.json
-
-# React / Node
+# Node
 **/node_modules/
 **/dist/
 **/build/
+**/.next/
+*.tsbuildinfo
 
 # Segredos e logs
-*.env
+.env
+.env.*
+!.env.example
 *.log
 
+# SO / editor
+.DS_Store
+**/.vscode/

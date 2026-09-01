@@ -1,0 +1,21 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Cliente {
+  id           String    @id @default(uuid()) @db.Uuid
+  nome         String
+  email        String    @unique
+  telefone     String?
+  documento    String?   // CPF ou CNPJ, só dígitos
+  ativo        Boolean   @default(true)
+  criadoEm     DateTime  @default(now()) @map("criado_em") @db.Timestamptz
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em") @db.Timestamptz
+
+  @@map("clientes")
+}
