@@ -1,6 +1,7 @@
 using System.Text;
 using backend.Data;
 using backend.Enums;
+using backend.Events;
 using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -27,6 +28,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Serviços da Aplicação
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<RelatorioService>();
+builder.Services.AddScoped<IEventoService, EventoServiceNoop>(); // TODO(RF06): trocar por EventoService real
 
 // Configuração da Autenticação via JWT Bearer
 var jwtKey = builder.Configuration["Jwt:Key"]!;
