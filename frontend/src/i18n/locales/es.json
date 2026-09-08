@@ -1,0 +1,37 @@
+{
+  "menu": {
+    "servicos": "Servicios",
+    "administrativo": "Administrativo",
+    "bankServices": "Bank Services",
+    "budgetServices": "Budget Services",
+    "taxServices": "Tax Services",
+    "cardServices": "Card Services"
+  },
+  "portal": {
+    "eyebrow": "PORTAL BANK SERVICES",
+    "title": "Páginas Disponibles",
+    "subtitle": "Explora todas las páginas disponibles en el portal",
+    "searchPlaceholder": "Buscar página...",
+    "recent": "Accedido recientemente",
+    "clearRecent": "Limpiar historial"
+  },
+  "table": {
+    "actions": "Acciones",
+    "rowsPerPage": "Filas por página",
+    "noData": "Ningún registro encontrado",
+    "columns": "Columnas",
+    "filters": "Filtros",
+    "export": "Exportar",
+    "reload": "Recargar"
+  },
+  "form": {
+    "required": "Campo obligatorio",
+    "save": "Guardar",
+    "cancel": "Cancelar"
+  },
+  "notify": {
+    "saveSuccess": "Registro guardado con éxito",
+    "saveError": "No se pudo guardar el registro",
+    "deleteWarning": "Esta acción no se puede deshacer"
+  }
+}

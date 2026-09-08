@@ -1,0 +1,37 @@
+{
+  "menu": {
+    "servicos": "Services",
+    "administrativo": "Administrative",
+    "bankServices": "Bank Services",
+    "budgetServices": "Budget Services",
+    "taxServices": "Tax Services",
+    "cardServices": "Card Services"
+  },
+  "portal": {
+    "eyebrow": "PORTAL BANK SERVICES",
+    "title": "Available Pages",
+    "subtitle": "Explore all pages available on the portal",
+    "searchPlaceholder": "Search page...",
+    "recent": "Recently accessed",
+    "clearRecent": "Clear history"
+  },
+  "table": {
+    "actions": "Actions",
+    "rowsPerPage": "Rows per page",
+    "noData": "No records found",
+    "columns": "Columns",
+    "filters": "Filters",
+    "export": "Export",
+    "reload": "Reload"
+  },
+  "form": {
+    "required": "Required field",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "notify": {
+    "saveSuccess": "Record saved successfully",
+    "saveError": "Could not save the record",
+    "deleteWarning": "This action cannot be undone"
+  }
+}

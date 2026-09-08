@@ -1,0 +1,16 @@
+# C# / .NET
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+appsettings.Development.json
+
+# React / Node
+**/node_modules/
+**/dist/
+**/build/
+
+# Segredos e logs
+*.env
+*.log
+
