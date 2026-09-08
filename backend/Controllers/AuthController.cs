@@ -27,7 +27,7 @@ public class AuthController : ControllerBase
 
         if (usuario == null)
         {
-            return Unauthorized("E-mail ou senha inválidos.");
+            return Unauthorized("E-mail inválido.");
         }
 
         var token = _authService.GerarToken(usuario);

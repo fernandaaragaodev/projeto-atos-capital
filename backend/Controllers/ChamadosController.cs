@@ -123,27 +123,32 @@ public class ChamadosController : ControllerBase
         return NoContent();
     }
 
-    [HttpPost("{id}/interacoes")]
-    public async Task<IActionResult> AdicionarInteracao(int id, [FromBody] CriarInteracaoDto dto)
+[HttpPost("{id}/interacoes")]
+public async Task<IActionResult> AdicionarInteracao(int id, [FromBody] CriarInteracaoDto dto)
+{
+    var chamado = await _context.Chamados.FindAsync(id);
+    if (chamado == null) return NotFound("Chamado não encontrado.");
+
+    var usuarioId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+    var interacao = new Interacao
     {
-        var chamado = await _context.Chamados.FindAsync(id);
-        if (chamado == null) return NotFound("Chamado não encontrado.");
+        ChamadoId = id,
+        AutorId = usuarioId,
+        Mensagem = dto.Mensagem,
+        Tipo = dto.Tipo,
+        Anexos = dto.Anexos,
+        CriadoEm = DateTime.UtcNow
+    };
 
-        var usuarioId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+    _context.Interacoes.Add(interacao);
 
-        var interacao = new Interacao
-        {
-            ChamadoId = id,
-            AutorId = usuarioId,
-            Mensagem = dto.Mensagem,
-            Tipo = dto.Tipo,
-            Anexos = dto.Anexos,
-            CriadoEm = DateTime.UtcNow
-        };
+    // --- ATUALIZAÇÃO DO CHAMADO ---
+    // Atualiza a propriedade com o nome correto declarada na sua Model:
+    chamado.AguardandoDesde = DateTime.UtcNow;
 
-        _context.Interacoes.Add(interacao);
-        await _context.SaveChangesAsync();
+    await _context.SaveChangesAsync();
 
-        return Ok(interacao);
-    }
+    return Ok(interacao);
+}
 }
