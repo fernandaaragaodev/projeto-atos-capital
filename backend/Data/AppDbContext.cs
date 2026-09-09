@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<Interacao> Interacoes { get; set; }
     public DbSet<SLACategoria> SLACategorias { get; set; }
     public DbSet<LogAuditoria> LogsAuditoria { get; set; }
+    public DbSet<AlertaSla> AlertasSla { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -42,6 +43,10 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Interacao>()
             .Property(i => i.Tipo)
+            .HasConversion<int>();
+
+        modelBuilder.Entity<AlertaSla>()
+            .Property(a => a.Tipo)
             .HasConversion<int>();
 
         // Auto-relacionamento Matriz / Filial (GrupoEmpresa)
@@ -101,5 +106,28 @@ public class AppDbContext : DbContext
             .WithMany(u => u.LogsAuditoria)
             .HasForeignKey(l => l.UsuarioId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Relacionamentos dos Alertas de SLA (RF07/RF09)
+        modelBuilder.Entity<AlertaSla>()
+            .HasOne(a => a.Chamado)
+            .WithMany(c => c.AlertasSla)
+            .HasForeignKey(a => a.ChamadoId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<AlertaSla>()
+            .HasOne(a => a.ReconhecidoPor)
+            .WithMany()
+            .HasForeignKey(a => a.ReconhecidoPorId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Índices para as consultas do monitor e dos relatórios
+        modelBuilder.Entity<AlertaSla>()
+            .HasIndex(a => new { a.ChamadoId, a.Tipo });
+
+        modelBuilder.Entity<AlertaSla>()
+            .HasIndex(a => a.ReconhecidoEm);
+
+        modelBuilder.Entity<Chamado>()
+            .HasIndex(c => new { c.Status, c.PrazoResolucao });
     }
 }
