@@ -1,0 +1,4 @@
+# Artefatos locais de compilação e testes, inclusive em projetos aninhados.
+**/bin/
+**/obj/
+**/TestResults/

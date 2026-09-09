@@ -1,5 +1,6 @@
-using backend.Data;
+using backend.Data.Repositories;
 using backend.DTOs;
+using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,19 +11,19 @@ namespace backend.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
-    private readonly AppDbContext _context;
+    private readonly IBaseRepository<Usuario> _usuarios;
     private readonly AuthService _authService;
 
-    public AuthController(AppDbContext context, AuthService authService)
+    public AuthController(IBaseRepository<Usuario> usuarios, AuthService authService)
     {
-        _context = context;
+        _usuarios = usuarios;
         _authService = authService;
     }
 
     [HttpPost("login")]
     public async Task<ActionResult<TokenResponseDto>> Login([FromBody] LoginDto dto)
     {
-        var usuario = await _context.Usuarios
+        var usuario = await _usuarios.ObterTodos()
             .FirstOrDefaultAsync(u => u.Email == dto.Email);
 
         if (usuario == null)

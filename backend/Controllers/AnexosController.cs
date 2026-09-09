@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using backend.Data;
+using backend.Data.Repositories;
 using backend.Enums;
 using backend.Events;
 using backend.Models;
@@ -26,14 +26,20 @@ public class AnexosController : ControllerBase
 
     private static readonly PapelEnum[] PapeisInternos = [PapelEnum.AGENTE, PapelEnum.SUPERVISOR, PapelEnum.ADMIN];
 
-    private readonly AppDbContext _context;
+    private readonly IBaseRepository<Chamado> _chamados;
+    private readonly IBaseRepository<Interacao> _interacoes;
+    private readonly IBaseRepository<LogAuditoria> _logsAuditoria;
     private readonly ArquivoService _arquivos;
     private readonly IEventoService _eventos;
     private readonly ILogger<AnexosController> _logger;
 
-    public AnexosController(AppDbContext context, ArquivoService arquivos, IEventoService eventos, ILogger<AnexosController> logger)
+    public AnexosController(IBaseRepository<Chamado> chamados, IBaseRepository<Interacao> interacoes,
+        IBaseRepository<LogAuditoria> logsAuditoria, ArquivoService arquivos, IEventoService eventos,
+        ILogger<AnexosController> logger)
     {
-        _context = context;
+        _chamados = chamados;
+        _interacoes = interacoes;
+        _logsAuditoria = logsAuditoria;
         _arquivos = arquivos;
         _eventos = eventos;
         _logger = logger;
@@ -51,7 +57,7 @@ public class AnexosController : ControllerBase
         var usuario = LerUsuario();
         if (usuario is null) return Unauthorized("Token sem a claim de identificação do usuário.");
 
-        var chamado = await _context.Chamados.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct);
+        var chamado = await _chamados.ObterTodos().AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct);
         if (chamado is null) return NotFound("Chamado não encontrado.");
         if (!PodeAcessar(usuario.Value, chamado)) return Forbid();
 
@@ -88,9 +94,9 @@ public class AnexosController : ControllerBase
                 Anexos = ArquivoService.Serializar(salvos),
                 CriadoEm = DateTime.UtcNow
             };
-            _context.Interacoes.Add(interacao);
+            _interacoes.Add(interacao);
 
-            _context.LogsAuditoria.Add(new LogAuditoria
+            _logsAuditoria.Add(new LogAuditoria
             {
                 ChamadoId = id,
                 UsuarioId = usuario.Value.Id,
@@ -101,7 +107,7 @@ public class AnexosController : ControllerBase
                 Data = DateTime.UtcNow
             });
 
-            await _context.SaveChangesAsync(ct);
+            await _chamados.SalvarAlteracoesAsync(ct);
 
             // 4. Evento (assíncrono; falha de webhook não afeta a resposta).
             await _eventos.PublicarAsync(TiposEvento.AnexoAdicionado, id, new
@@ -144,7 +150,7 @@ public class AnexosController : ControllerBase
         var usuario = LerUsuario();
         if (usuario is null) return Unauthorized("Token sem a claim de identificação do usuário.");
 
-        var chamado = await _context.Chamados.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct);
+        var chamado = await _chamados.ObterTodos().AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct);
         if (chamado is null) return NotFound("Chamado não encontrado.");
         if (!PodeAcessar(usuario.Value, chamado)) return Forbid();
 
@@ -186,12 +192,12 @@ public class AnexosController : ControllerBase
         var usuario = LerUsuario();
         if (usuario is null) return Unauthorized("Token sem a claim de identificação do usuário.");
 
-        var chamado = await _context.Chamados.AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct);
+        var chamado = await _chamados.ObterTodos().AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct);
         if (chamado is null) return NotFound("Chamado não encontrado.");
         if (!PodeAcessar(usuario.Value, chamado)) return Forbid();
 
         // Procura o anexo entre as interações DESTE chamado (o nome é único, mas exigimos o vínculo).
-        var candidatas = await _context.Interacoes.AsNoTracking()
+        var candidatas = await _interacoes.ObterTodos().AsNoTracking()
             .Where(i => i.ChamadoId == id && i.Anexos != null && i.Anexos!.Contains(nomeArmazenado))
             .Select(i => new { i.Tipo, i.Anexos })
             .ToListAsync(ct);
@@ -243,7 +249,7 @@ public class AnexosController : ControllerBase
     /// <summary>CLIENTE só vê interações PUBLICA.</summary>
     private IQueryable<Interacao> InteracoesVisiveis(int chamadoId, PapelEnum papel)
     {
-        var query = _context.Interacoes.AsNoTracking().Where(i => i.ChamadoId == chamadoId);
+        var query = _interacoes.ObterTodos().AsNoTracking().Where(i => i.ChamadoId == chamadoId);
         if (papel == PapelEnum.CLIENTE) query = query.Where(i => i.Tipo == TipoInteracaoEnum.PUBLICA);
         return query;
     }

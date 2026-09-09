@@ -1,4 +1,4 @@
-using backend.Data;
+using backend.Data.Repositories;
 using backend.DTOs;
 using backend.Enums;
 using backend.Models;
@@ -17,11 +17,18 @@ namespace backend.Services;
 /// </summary>
 public class RelatorioService
 {
-    private readonly AppDbContext _context;
+    private readonly IBaseRepository<Chamado> _chamados;
+    private readonly IBaseRepository<Usuario> _usuarios;
+    private readonly IBaseRepository<AlertaSla> _alertasSla;
+    private readonly IBaseRepository<LogAuditoria> _logsAuditoria;
 
-    public RelatorioService(AppDbContext context)
+    public RelatorioService(IBaseRepository<Chamado> chamados, IBaseRepository<Usuario> usuarios,
+        IBaseRepository<AlertaSla> alertasSla, IBaseRepository<LogAuditoria> logsAuditoria)
     {
-        _context = context;
+        _chamados = chamados;
+        _usuarios = usuarios;
+        _alertasSla = alertasSla;
+        _logsAuditoria = logsAuditoria;
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -67,7 +74,7 @@ public class RelatorioService
 
     private IQueryable<Chamado> Consulta(FiltroNormalizado f)
     {
-        IQueryable<Chamado> q = _context.Chamados.AsNoTracking();
+        IQueryable<Chamado> q = _chamados.ObterTodos().AsNoTracking();
         if (f.Inicio.HasValue) q = q.Where(c => c.CriadoEm >= f.Inicio.Value);
         if (f.FimExclusivo.HasValue) q = q.Where(c => c.CriadoEm < f.FimExclusivo.Value);
         if (f.GrupoEmpresaId.HasValue) q = q.Where(c => c.GrupoEmpresaId == f.GrupoEmpresaId.Value);
@@ -212,7 +219,7 @@ public class RelatorioService
         var agora = DateTime.UtcNow;
 
         // Todos os agentes cadastrados aparecem (mesmo com zero chamados), além de qualquer usuário que tenha chamado atribuído
-        var agentesQuery = _context.Usuarios.AsNoTracking().Where(u => u.Papel == PapelEnum.AGENTE);
+        var agentesQuery = _usuarios.ObterTodos().AsNoTracking().Where(u => u.Papel == PapelEnum.AGENTE);
         if (f.AgenteId.HasValue) agentesQuery = agentesQuery.Where(u => u.Id == f.AgenteId.Value);
         var agentes = await agentesQuery.Select(u => new { u.Id, u.Nome }).ToListAsync(ct);
 
@@ -499,7 +506,7 @@ public class RelatorioService
 
     public async Task<List<AlertaSlaDto>> ListarAlertasSlaAsync(bool apenasPendentes, TipoAlertaSlaEnum? tipo, int? chamadoId, int? grupoEmpresaId, CancellationToken ct = default)
     {
-        IQueryable<AlertaSla> q = _context.AlertasSla.AsNoTracking();
+        IQueryable<AlertaSla> q = _alertasSla.ObterTodos().AsNoTracking();
         if (apenasPendentes) q = q.Where(a => a.ReconhecidoEm == null);
         if (tipo.HasValue) q = q.Where(a => a.Tipo == tipo.Value);
         if (chamadoId.HasValue) q = q.Where(a => a.ChamadoId == chamadoId.Value);
@@ -530,7 +537,7 @@ public class RelatorioService
     }
 
     public Task<AlertaSlaDto?> ObterAlertaSlaAsync(int id, CancellationToken ct = default) =>
-        _context.AlertasSla.AsNoTracking()
+        _alertasSla.ObterTodos().AsNoTracking()
             .Where(a => a.Id == id)
             .Select(a => new AlertaSlaDto(
                 a.Id, a.ChamadoId, a.Chamado.CodigoPublico, a.Tipo, a.Tipo.ToString(), a.CriadoEm,
@@ -545,13 +552,13 @@ public class RelatorioService
     /// <summary>Reconhece (dá ciência) um alerta; grava LogAuditoria ALERTA_SLA_RECONHECIDO com o usuário logado.</summary>
     public async Task<ResultadoReconhecimento> ReconhecerAlertaSlaAsync(int id, int usuarioId, CancellationToken ct = default)
     {
-        var alerta = await _context.AlertasSla.FirstOrDefaultAsync(a => a.Id == id, ct);
+        var alerta = await _alertasSla.ObterTodos().FirstOrDefaultAsync(a => a.Id == id, ct);
         if (alerta == null) return ResultadoReconhecimento.NaoEncontrado;
         if (!alerta.EstaPendente()) return ResultadoReconhecimento.JaReconhecido;
 
         alerta.Reconhecer(usuarioId);
 
-        _context.LogsAuditoria.Add(new LogAuditoria
+        _logsAuditoria.Add(new LogAuditoria
         {
             ChamadoId = alerta.ChamadoId,
             UsuarioId = usuarioId,
@@ -562,7 +569,7 @@ public class RelatorioService
             Data = DateTime.UtcNow
         });
 
-        await _context.SaveChangesAsync(ct);
+        await _alertasSla.SalvarAlteracoesAsync(ct);
         return ResultadoReconhecimento.Ok;
     }
 }

@@ -1,3 +1,4 @@
+using backend.Data.Repositories;
 using backend.Enums;
 using backend.Models;
 
@@ -26,9 +27,9 @@ public static class DataSeeder
     /// Só insere as combinações que ainda não existem (não altera regras já cadastradas).
     /// </summary>
     /// <returns>Quantidade de regras inseridas.</returns>
-    public static int SeedSlaCategorias(AppDbContext context)
+    public static int SeedSlaCategorias(IBaseRepository<SLACategoria> slaCategorias)
     {
-        var existentes = context.SLACategorias
+        var existentes = slaCategorias.ObterTodos()
             .Where(s => s.Produto == ProdutoPadrao)
             .Select(s => new { s.Categoria, s.Prioridade })
             .ToList()
@@ -54,8 +55,8 @@ public static class DataSeeder
 
         if (novas.Count > 0)
         {
-            context.SLACategorias.AddRange(novas);
-            context.SaveChanges();
+            slaCategorias.AddRange(novas);
+            slaCategorias.SalvarAlteracoes();
         }
 
         return novas.Count;

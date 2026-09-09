@@ -2,9 +2,8 @@ using backend.Enums;
 
 namespace backend.Models;
 
-public class SLACategoria
+public class SLACategoria : BaseEntity
 {
-    public int Id { get; set; }
     public string Produto { get; set; } = string.Empty;
     public string Categoria { get; set; } = string.Empty;
     public PrioridadeEnum Prioridade { get; set; }
