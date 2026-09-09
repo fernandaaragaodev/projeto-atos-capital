@@ -1,8 +1,7 @@
 namespace backend.Models;
 
-public class LogAuditoria
+public class LogAuditoria : BaseEntity
 {
-    public int Id { get; set; }
     public int ChamadoId { get; set; }
     public int UsuarioId { get; set; }
     public string Acao { get; set; } = string.Empty;

@@ -1,5 +1,5 @@
 using System.Security.Claims;
-using backend.Data;
+using backend.Data.Repositories;
 using backend.DTOs;
 using backend.Enums;
 using backend.Events;
@@ -19,12 +19,22 @@ public class ChamadosController : ControllerBase
     private const int PageSizePadrao = 20;
     private const int PageSizeMaximo = 100;
 
-    private readonly AppDbContext _context;
+    private readonly IBaseRepository<Chamado> _chamados;
+    private readonly IBaseRepository<Usuario> _usuarios;
+    private readonly IBaseRepository<SLACategoria> _slaCategorias;
+    private readonly IBaseRepository<Interacao> _interacoes;
+    private readonly IBaseRepository<LogAuditoria> _logsAuditoria;
     private readonly IEventoService _eventos;
 
-    public ChamadosController(AppDbContext context, IEventoService eventos)
+    public ChamadosController(IBaseRepository<Chamado> chamados, IBaseRepository<Usuario> usuarios,
+        IBaseRepository<SLACategoria> slaCategorias, IBaseRepository<Interacao> interacoes,
+        IBaseRepository<LogAuditoria> logsAuditoria, IEventoService eventos)
     {
-        _context = context;
+        _chamados = chamados;
+        _usuarios = usuarios;
+        _slaCategorias = slaCategorias;
+        _interacoes = interacoes;
+        _logsAuditoria = logsAuditoria;
         _eventos = eventos;
     }
 
@@ -92,7 +102,7 @@ public class ChamadosController : ControllerBase
         if (pageSize < 1) pageSize = PageSizePadrao;
         if (pageSize > PageSizeMaximo) pageSize = PageSizeMaximo;
 
-        IQueryable<Chamado> query = _context.Chamados.AsNoTracking();
+        IQueryable<Chamado> query = _chamados.ObterTodos().AsNoTracking();
 
         // Regras por papel
         if (usuario.EhCliente)
@@ -161,14 +171,14 @@ public class ChamadosController : ControllerBase
     public async Task<IActionResult> ObterAgentesDisponiveis()
     {
         // Obtém os IDs dos agentes associados a chamados ATIVOS (sem data de resolução e sem data de fechamento)
-        var agentesOcupadosIds = await _context.Chamados
+        var agentesOcupadosIds = await _chamados.ObterTodos()
             .Where(c => c.AgenteId.HasValue && c.ResolvidoEm == null && c.FechadoEm == null)
             .Select(c => c.AgenteId!.Value)
             .Distinct()
             .ToListAsync();
 
         // Filtra os usuários com papel AGENTE que NÃO estão ocupados
-        var agentesDisponiveis = await _context.Usuarios
+        var agentesDisponiveis = await _usuarios.ObterTodos()
             .Where(u => u.Papel == PapelEnum.AGENTE && !agentesOcupadosIds.Contains(u.Id))
             .Select(u => new
             {
@@ -203,7 +213,7 @@ public class ChamadosController : ControllerBase
         var incluirLogs = usuario.EhEquipe;
 
         // Projeção única (AsNoTracking, sem ciclos, sem N+1)
-        var c = await _context.Chamados
+        var c = await _chamados.ObterTodos()
             .AsNoTracking()
             .Where(filtro)
             .Select(c => new
@@ -294,7 +304,7 @@ public class ChamadosController : ControllerBase
         chamado.GerarCodigoPublico();
 
         // 1. Buscar Regra de SLA
-        var slaRule = await _context.SLACategorias
+        var slaRule = await _slaCategorias.ObterTodos()
             .FirstOrDefaultAsync(s => s.Produto == chamado.Produto && s.Categoria == chamado.Categoria && s.Prioridade == chamado.Prioridade);
 
         if (slaRule != null)
@@ -305,13 +315,13 @@ public class ChamadosController : ControllerBase
         }
 
         // 2. ATRIBUIÇÃO AUTOMÁTICA: Buscar o primeiro agente livre
-        var agentesOcupadosIds = await _context.Chamados
+        var agentesOcupadosIds = await _chamados.ObterTodos()
             .Where(c => c.AgenteId.HasValue && c.ResolvidoEm == null && c.FechadoEm == null)
             .Select(c => c.AgenteId!.Value)
             .Distinct()
             .ToListAsync();
 
-        var primeiroAgenteLivre = await _context.Usuarios
+        var primeiroAgenteLivre = await _usuarios.ObterTodos()
             .Where(u => u.Papel == PapelEnum.AGENTE && !agentesOcupadosIds.Contains(u.Id))
             .OrderBy(u => u.Id)
             .FirstOrDefaultAsync();
@@ -322,10 +332,10 @@ public class ChamadosController : ControllerBase
             chamado.AtribuirAgente(primeiroAgenteLivre.Id);
         }
 
-        _context.Chamados.Add(chamado);
+        _chamados.Add(chamado);
 
         // 3. Registrar Log de Auditoria
-        _context.LogsAuditoria.Add(new LogAuditoria
+        _logsAuditoria.Add(new LogAuditoria
         {
             Chamado = chamado,
             UsuarioId = usuario.Id,
@@ -339,7 +349,7 @@ public class ChamadosController : ControllerBase
         // Se foi atribuído, registra o log de atribuição na mesma transação
         if (primeiroAgenteLivre != null)
         {
-            _context.LogsAuditoria.Add(new LogAuditoria
+            _logsAuditoria.Add(new LogAuditoria
             {
                 Chamado = chamado,
                 UsuarioId = usuario.Id,
@@ -351,7 +361,7 @@ public class ChamadosController : ControllerBase
             });
         }
 
-        await _context.SaveChangesAsync();
+        await _chamados.SalvarAlteracoesAsync();
 
         // 4. Eventos (após persistir)
         await _eventos.PublicarAsync(TiposEvento.ChamadoCriado, chamado.Id, new
@@ -402,7 +412,7 @@ public class ChamadosController : ControllerBase
         if (!Enum.IsDefined(dto.Status))
             return BadRequest("Status inválido.");
 
-        var chamado = await _context.Chamados.FindAsync(id);
+        var chamado = await _chamados.ObterAsync(id);
         if (chamado == null) return NotFound("Chamado não encontrado.");
 
         // Visibilidade: cliente só no próprio grupo
@@ -440,7 +450,7 @@ public class ChamadosController : ControllerBase
 
         var agora = DateTime.UtcNow;
 
-        _context.LogsAuditoria.Add(new LogAuditoria
+        _logsAuditoria.Add(new LogAuditoria
         {
             ChamadoId = chamado.Id,
             UsuarioId = usuario.Id,
@@ -462,10 +472,10 @@ public class ChamadosController : ControllerBase
                 Mensagem = dto.Comentario.Trim(),
                 CriadoEm = agora
             };
-            _context.Interacoes.Add(comentario);
+            _interacoes.Add(comentario);
         }
 
-        await _context.SaveChangesAsync();
+        await _chamados.SalvarAlteracoesAsync();
 
         // Eventos (após persistir)
         var payloadStatus = new
@@ -515,7 +525,7 @@ public class ChamadosController : ControllerBase
         if (usuario.EhAgente && agenteId != usuario.Id)
             return Forbid();
 
-        var chamado = await _context.Chamados.FindAsync(id);
+        var chamado = await _chamados.ObterAsync(id);
         if (chamado == null) return NotFound("Chamado não encontrado.");
 
         if (chamado.Status == StatusEnum.FECHADO)
@@ -525,7 +535,7 @@ public class ChamadosController : ControllerBase
         if (!AgentePodeAtuar(usuario, chamado.AgenteId))
             return Forbid();
 
-        var agente = await _context.Usuarios
+        var agente = await _usuarios.ObterTodos()
             .AsNoTracking()
             .Where(u => u.Id == agenteId && u.Papel == PapelEnum.AGENTE)
             .Select(u => new { u.Id, u.Nome })
@@ -539,7 +549,7 @@ public class ChamadosController : ControllerBase
 
         chamado.AtribuirAgente(agenteId);
 
-        _context.LogsAuditoria.Add(new LogAuditoria
+        _logsAuditoria.Add(new LogAuditoria
         {
             ChamadoId = chamado.Id,
             UsuarioId = usuario.Id,
@@ -554,7 +564,7 @@ public class ChamadosController : ControllerBase
         var statusMudou = chamado.Status != statusAnterior;
         if (statusMudou)
         {
-            _context.LogsAuditoria.Add(new LogAuditoria
+            _logsAuditoria.Add(new LogAuditoria
             {
                 ChamadoId = chamado.Id,
                 UsuarioId = usuario.Id,
@@ -566,7 +576,7 @@ public class ChamadosController : ControllerBase
             });
         }
 
-        await _context.SaveChangesAsync();
+        await _chamados.SalvarAlteracoesAsync();
 
         await _eventos.PublicarAsync(TiposEvento.ChamadoAgenteAtribuido, chamado.Id, new
         {
@@ -628,7 +638,7 @@ public class ChamadosController : ControllerBase
         if (!string.IsNullOrWhiteSpace(dto.Anexos))
             return BadRequest("Anexos não podem ser informados neste endpoint. Use POST /api/Chamados/{id}/anexos (multipart/form-data).");
 
-        var chamado = await _context.Chamados.FindAsync(id);
+        var chamado = await _chamados.ObterAsync(id);
         if (chamado == null) return NotFound("Chamado não encontrado.");
 
         // Cliente: só no próprio grupo e só PUBLICA
@@ -657,7 +667,7 @@ public class ChamadosController : ControllerBase
             CriadoEm = agora
         };
 
-        _context.Interacoes.Add(interacao);
+        _interacoes.Add(interacao);
 
         // Controle de AguardandoDesde / status:
         // - Equipe responde publicamente em chamado ABERTO/EM_ANDAMENTO -> passa a AGUARDANDO_CLIENTE (seta AguardandoDesde)
@@ -679,7 +689,7 @@ public class ChamadosController : ControllerBase
         var statusMudou = chamado.Status != statusAnterior;
         if (statusMudou)
         {
-            _context.LogsAuditoria.Add(new LogAuditoria
+            _logsAuditoria.Add(new LogAuditoria
             {
                 ChamadoId = chamado.Id,
                 UsuarioId = usuario.Id,
@@ -691,7 +701,7 @@ public class ChamadosController : ControllerBase
             });
         }
 
-        await _context.SaveChangesAsync();
+        await _chamados.SalvarAlteracoesAsync();
 
         await PublicarInteracaoCriada(chamado, interacao, usuario);
 
@@ -717,7 +727,7 @@ public class ChamadosController : ControllerBase
             });
         }
 
-        var autorNome = await _context.Usuarios
+        var autorNome = await _usuarios.ObterTodos()
             .AsNoTracking()
             .Where(u => u.Id == usuario.Id)
             .Select(u => u.Nome)

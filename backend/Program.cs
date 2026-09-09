@@ -1,5 +1,6 @@
 using System.Text;
 using backend.Data;
+using backend.Data.Repositories;
 using backend.Enums;
 using backend.Events;
 using backend.Models;
@@ -24,6 +25,7 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
+builder.Services.AddRepositories();
 
 // Serviços da Aplicação
 builder.Services.AddScoped<AuthService>();
@@ -112,8 +114,12 @@ using (var scope = app.Services.CreateScope())
     // Aplica as migrations criando o banco de dados e as tabelas caso não existam
     context.Database.Migrate();
 
+    var gruposEmpresas = scope.ServiceProvider.GetRequiredService<IBaseRepository<GrupoEmpresa>>();
+    var usuarios = scope.ServiceProvider.GetRequiredService<IBaseRepository<Usuario>>();
+    var slaCategorias = scope.ServiceProvider.GetRequiredService<IBaseRepository<SLACategoria>>();
+
     // Garante a existência do grupo
-    var grupo = context.GruposEmpresas.FirstOrDefault(g => g.Nome == "Atos Capital");
+    var grupo = gruposEmpresas.ObterTodos().FirstOrDefault(g => g.Nome == "Atos Capital");
     if (grupo == null)
     {
         grupo = new GrupoEmpresa 
@@ -122,14 +128,14 @@ using (var scope = app.Services.CreateScope())
             IdExterno = "GRP-ATOS-001",
             Tipo = TipoGrupoEnum.MATRIZ
         };
-        context.GruposEmpresas.Add(grupo);
-        context.SaveChanges();
+        gruposEmpresas.Add(grupo);
+        gruposEmpresas.SalvarAlteracoes();
     }
 
     // Garante a criação dos usuários de teste caso não existam
-    if (!context.Usuarios.Any())
+    if (!usuarios.ObterTodos().Any())
     {
-        context.Usuarios.AddRange(
+        usuarios.AddRange([
             new Usuario
             {
                 Nome = "Admin Atos",
@@ -148,12 +154,12 @@ using (var scope = app.Services.CreateScope())
                 Papel = PapelEnum.CLIENTE,
                 GrupoEmpresaId = grupo.Id
             }
-        );
-        context.SaveChanges();
+        ]);
+        usuarios.SalvarAlteracoes();
     }
 
     // RF07 — Regras de SLA padrão (idempotente): Plataforma x Acesso/Erro/Dúvida x 4 prioridades
-    DataSeeder.SeedSlaCategorias(context);
+    DataSeeder.SeedSlaCategorias(slaCategorias);
 }
 
 app.Run();

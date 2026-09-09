@@ -6,9 +6,8 @@ namespace backend.Models;
 /// Histórico de alertas de SLA disparados pelo SlaMonitorService (RF07/RF09).
 /// Cada chamado recebe no máximo um alerta de cada tipo (controlado pelas colunas Alerta*Em do Chamado).
 /// </summary>
-public class AlertaSla
+public class AlertaSla : BaseEntity
 {
-    public int Id { get; set; }
     public int ChamadoId { get; set; }
     public TipoAlertaSlaEnum Tipo { get; set; }
     public DateTime CriadoEm { get; set; } = DateTime.UtcNow;

@@ -2,9 +2,8 @@ using backend.Enums;
 
 namespace backend.Models;
 
-public class Chamado
+public class Chamado : BaseEntity
 {
-    public int Id { get; set; }
     public string CodigoPublico { get; set; } = string.Empty;
     public int UsuarioId { get; set; }
     public int GrupoEmpresaId { get; set; }

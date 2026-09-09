@@ -1,4 +1,4 @@
-using backend.Data;
+using backend.Data.Repositories;
 using backend.Enums;
 using backend.Events;
 using backend.Models;
@@ -96,7 +96,10 @@ public sealed class SlaMonitorService : BackgroundService
     public async Task<int> ExecutarCicloAsync(CancellationToken ct = default)
     {
         using var scope = _scopeFactory.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var chamados = scope.ServiceProvider.GetRequiredService<IBaseRepository<Chamado>>();
+        var usuarios = scope.ServiceProvider.GetRequiredService<IBaseRepository<Usuario>>();
+        var alertasSla = scope.ServiceProvider.GetRequiredService<IBaseRepository<AlertaSla>>();
+        var logsAuditoria = scope.ServiceProvider.GetRequiredService<IBaseRepository<LogAuditoria>>();
         var eventos = scope.ServiceProvider.GetRequiredService<IEventoService>();
 
         var agora = DateTime.UtcNow;
@@ -104,7 +107,7 @@ public sealed class SlaMonitorService : BackgroundService
 
         // Candidatos: chamados não finalizados com algum prazo que exija alerta ainda não disparado.
         // A existência de resposta de agente é calculada no banco (subquery), sem carregar interações.
-        var candidatos = await db.Chamados
+        var candidatos = await chamados.ObterTodos()
             .Where(c => c.Status != StatusEnum.RESOLVIDO && c.Status != StatusEnum.FECHADO)
             .Where(c =>
                 (c.PrazoResposta != null && c.PrazoResposta < agora && c.AlertaRespostaAtrasadaEm == null) ||
@@ -129,7 +132,7 @@ public sealed class SlaMonitorService : BackgroundService
             return 0;
         }
 
-        var usuarioSistemaId = await ObterUsuarioSistemaIdAsync(db, ct);
+        var usuarioSistemaId = await ObterUsuarioSistemaIdAsync(usuarios, ct);
         var disparados = 0;
 
         foreach (var item in candidatos)
@@ -146,7 +149,7 @@ public sealed class SlaMonitorService : BackgroundService
                 {
                     chamado.AlertaRespostaAtrasadaEm = agora;
                     var minutosAtraso = (int)Math.Round((agora - chamado.PrazoResposta.Value).TotalMinutes);
-                    RegistrarAlerta(db, chamado, TipoAlertaSlaEnum.RESPOSTA_ATRASADA, AcaoAlertaRespostaAtrasada,
+                    RegistrarAlerta(alertasSla, logsAuditoria, chamado, TipoAlertaSlaEnum.RESPOSTA_ATRASADA, AcaoAlertaRespostaAtrasada,
                         "PrazoResposta", chamado.PrazoResposta.Value, usuarioSistemaId ?? chamado.AgenteId ?? chamado.UsuarioId, agora);
                     pendentes.Add((TiposEvento.SlaEstourado,
                         SlaEventoPayload.De(chamado, TipoAlertaSlaEnum.RESPOSTA_ATRASADA, minutosRestantes: null, minutosAtraso: minutosAtraso)));
@@ -157,7 +160,7 @@ public sealed class SlaMonitorService : BackgroundService
                 {
                     chamado.AlertaEstouroSlaEm = agora;
                     var minutosAtraso = (int)Math.Round((agora - chamado.PrazoResolucao.Value).TotalMinutes);
-                    RegistrarAlerta(db, chamado, TipoAlertaSlaEnum.ESTOURO_RESOLUCAO, AcaoAlertaEstouro,
+                    RegistrarAlerta(alertasSla, logsAuditoria, chamado, TipoAlertaSlaEnum.ESTOURO_RESOLUCAO, AcaoAlertaEstouro,
                         "PrazoResolucao", chamado.PrazoResolucao.Value, usuarioSistemaId ?? chamado.AgenteId ?? chamado.UsuarioId, agora);
                     pendentes.Add((TiposEvento.SlaEstourado,
                         SlaEventoPayload.De(chamado, TipoAlertaSlaEnum.ESTOURO_RESOLUCAO, minutosRestantes: null, minutosAtraso: minutosAtraso)));
@@ -168,7 +171,7 @@ public sealed class SlaMonitorService : BackgroundService
                 {
                     chamado.AlertaRiscoSlaEm = agora;
                     var minutosRestantes = (int)Math.Round((chamado.PrazoResolucao.Value - agora).TotalMinutes);
-                    RegistrarAlerta(db, chamado, TipoAlertaSlaEnum.RISCO_RESOLUCAO, AcaoAlertaRisco,
+                    RegistrarAlerta(alertasSla, logsAuditoria, chamado, TipoAlertaSlaEnum.RISCO_RESOLUCAO, AcaoAlertaRisco,
                         "PrazoResolucao", chamado.PrazoResolucao.Value, usuarioSistemaId ?? chamado.AgenteId ?? chamado.UsuarioId, agora);
                     pendentes.Add((TiposEvento.SlaEmRisco,
                         SlaEventoPayload.De(chamado, TipoAlertaSlaEnum.RISCO_RESOLUCAO, minutosRestantes: minutosRestantes, minutosAtraso: null)));
@@ -177,7 +180,7 @@ public sealed class SlaMonitorService : BackgroundService
                 if (pendentes.Count == 0) continue;
 
                 // Persiste marcadores + histórico + auditoria antes de publicar (evento só sai se o banco confirmou)
-                await db.SaveChangesAsync(ct);
+                await chamados.SalvarAlteracoesAsync(ct);
                 disparados += pendentes.Count;
 
                 foreach (var (tipoEvento, payload) in pendentes)
@@ -203,7 +206,7 @@ public sealed class SlaMonitorService : BackgroundService
             {
                 // Isola a falha de um chamado para não impedir os demais
                 _logger.LogError(ex, "Erro ao processar alertas do chamado {Id} ({Codigo}).", chamado.Id, chamado.CodigoPublico);
-                db.ChangeTracker.Clear();
+                chamados.GetDbContext().ChangeTracker.Clear();
             }
         }
 
@@ -214,17 +217,18 @@ public sealed class SlaMonitorService : BackgroundService
         return disparados;
     }
 
-    private static void RegistrarAlerta(AppDbContext db, Chamado chamado, TipoAlertaSlaEnum tipo, string acao,
+    private static void RegistrarAlerta(IBaseRepository<AlertaSla> alertasSla,
+        IBaseRepository<LogAuditoria> logsAuditoria, Chamado chamado, TipoAlertaSlaEnum tipo, string acao,
         string campo, DateTime prazo, int usuarioId, DateTime agora)
     {
-        db.AlertasSla.Add(new AlertaSla
+        alertasSla.Add(new AlertaSla
         {
             ChamadoId = chamado.Id,
             Tipo = tipo,
             CriadoEm = agora
         });
 
-        db.LogsAuditoria.Add(new LogAuditoria
+        logsAuditoria.Add(new LogAuditoria
         {
             ChamadoId = chamado.Id,
             UsuarioId = usuarioId,
@@ -240,9 +244,9 @@ public sealed class SlaMonitorService : BackgroundService
     /// Autor dos LogAuditoria gerados pelo monitor: o admin do seed (admin@atos.com); se não existir, o primeiro ADMIN.
     /// Se não houver nenhum ADMIN, o chamador usa o agente do chamado e, em último caso, o solicitante.
     /// </summary>
-    private static async Task<int?> ObterUsuarioSistemaIdAsync(AppDbContext db, CancellationToken ct)
+    private static async Task<int?> ObterUsuarioSistemaIdAsync(IBaseRepository<Usuario> usuarios, CancellationToken ct)
     {
-        var id = await db.Usuarios
+        var id = await usuarios.ObterTodos()
             .Where(u => u.Papel == PapelEnum.ADMIN)
             .OrderBy(u => u.Email == EmailAdminSistema ? 0 : 1)
             .ThenBy(u => u.Id)
