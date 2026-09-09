@@ -28,7 +28,13 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // Serviços da Aplicação
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<RelatorioService>();
-builder.Services.AddScoped<IEventoService, EventoServiceNoop>(); // TODO(RF06): trocar por EventoService real
+builder.Services.AddEventosWebhooks(builder.Configuration); // RF06: Channel + EventoService + WebhookDispatcher (Events/)
+builder.Services.AddAnexos(builder.Configuration);          // RF11: AnexosOptions + ArquivoService (uploads NÃO são static files)
+
+// RF07/RF09 — Monitor de SLA (BackgroundService) + options da seção "Sla"
+builder.Services.Configure<SlaOptions>(builder.Configuration.GetSection(SlaOptions.Secao));
+builder.Services.AddSingleton<SlaMonitorService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<SlaMonitorService>());
 
 // Configuração da Autenticação via JWT Bearer
 var jwtKey = builder.Configuration["Jwt:Key"]!;
@@ -145,6 +151,9 @@ using (var scope = app.Services.CreateScope())
         );
         context.SaveChanges();
     }
+
+    // RF07 — Regras de SLA padrão (idempotente): Plataforma x Acesso/Erro/Dúvida x 4 prioridades
+    DataSeeder.SeedSlaCategorias(context);
 }
 
 app.Run();
