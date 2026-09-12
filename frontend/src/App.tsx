@@ -2,6 +2,7 @@ import { Navigate, Route, Routes, useNavigate, useLocation } from 'react-router-
 import { Tabs, Tab, Box } from '@mui/material';
 import { MainLayout } from '@/layouts/MainLayout';
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
+import { RequireAuth } from '@/auth/RequireAuth';
 import { PaginasDisponiveis } from '@/pages/PaginasDisponiveis';
 import { TitulosAPagar } from '@/pages/TitulosAPagar';
 import { Chamados } from '@/pages/Chamados';
@@ -33,10 +34,11 @@ function AppTabs() {
 }
 
 function AppShell() {
+  // RequireAuth só renderiza este componente com o usuário já carregado.
   const { user } = useAuth();
 
   return (
-    <MainLayout userName={user.nome} companyName={user.grupoEmpresaNome}>
+    <MainLayout userName={user!.nome} companyName={user!.grupoEmpresaNome}>
       <AppTabs />
       <Routes>
         <Route path="/" element={<Navigate to="/chamados" replace />} />
@@ -53,7 +55,9 @@ function AppShell() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppShell />
+      <RequireAuth>
+        <AppShell />
+      </RequireAuth>
     </AuthProvider>
   );
 }

@@ -112,7 +112,9 @@ export const AGENTES = [
 let sequencia = mockChamados.length;
 
 export function useApp() {
-  const { user } = useAuth();
+  // RequireAuth garante que esta tela só renderiza com o usuário já carregado.
+  const { user: usuarioLogado } = useAuth();
+  const user = usuarioLogado!;
   const [chamados, setChamados] = useState<Chamado[]>(mockChamados);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([

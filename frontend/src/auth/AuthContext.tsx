@@ -1,4 +1,9 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { clearToken, getToken, setToken } from '@/api/client';
+import { me } from '@/api/auth';
+import { papelFromApi } from '@/api/mappers';
+import type { UsuarioLogado } from '@/api/types';
 import type { Papel } from '@/types/chamado';
 
 export interface AuthUser {
@@ -11,40 +16,79 @@ export interface AuthUser {
 }
 
 interface AuthContextValue {
-  user: AuthUser;
+  user: AuthUser | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  /** true enquanto o /me da carga inicial (token já salvo em sessionStorage) ainda não respondeu. */
+  loading: boolean;
+  /** Sincroniza um token já salvo (por src/api/auth.ts login()) com o estado da aplicação, buscando o usuário via /me. */
+  login: (token: string) => Promise<void>;
+  logout: () => void;
   hasRole: (...papeis: Papel[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-/**
- * RF10 — Sincronização de usuários via SSO/JWT.
- *
- * Em produção, o portal Atos Capital emite um JWT assinado (usuário + grupo empresa)
- * ao acessar esta ferramenta; a API de suporte valida a assinatura e faz o upsert do
- * usuário/grupo de forma transparente (Seção 6.2 do Termo de Referência).
- *
- * Este provider decodifica esse token (hoje simulado) uma única vez e expõe o usuário
- * autenticado para toda a árvore de componentes. Ponto de integração real:
- * substituir `mockDecodedToken` pela leitura/validação do JWT recebido do portal
- * (ex.: querystring `?token=` ou cookie compartilhado) antes de renderizar <App />.
- */
-const mockDecodedToken: AuthUser = {
-  id: 'usr-001',
-  nome: 'Victor Breno Santos Rodrigues',
-  email: 'victor.rodrigues@atoscapital.com.br',
-  grupoEmpresaId: 'grp-001',
-  grupoEmpresaNome: 'Atos Capital — Matriz',
-  papel: 'supervisor',
-};
+function mapUsuarioLogado(dto: UsuarioLogado): AuthUser {
+  return {
+    id: String(dto.id),
+    nome: dto.nome,
+    email: dto.email,
+    grupoEmpresaId: String(dto.grupoEmpresaId),
+    grupoEmpresaNome: dto.grupoEmpresaNome,
+    papel: papelFromApi(dto.papel),
+  };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [token, setTokenState] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Carga inicial: se já existe token na sessão, busca o usuário via /me antes de liberar as rotas.
+  useEffect(() => {
+    const tokenSalvo = getToken();
+    if (!tokenSalvo) {
+      setLoading(false);
+      return;
+    }
+    setTokenState(tokenSalvo);
+    me()
+      .then((dto) => setUser(mapUsuarioLogado(dto)))
+      .catch(() => {
+        clearToken();
+        setTokenState(null);
+        setUser(null);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const login = useCallback(async (novoToken: string) => {
+    setToken(novoToken);
+    setTokenState(novoToken);
+    const dto = await me();
+    setUser(mapUsuarioLogado(dto));
+  }, []);
+
+  const logout = useCallback(() => {
+    clearToken();
+    setTokenState(null);
+    setUser(null);
+    navigate('/login', { replace: true });
+  }, [navigate]);
+
   const value = useMemo<AuthContextValue>(
     () => ({
-      user: mockDecodedToken,
-      hasRole: (...papeis: Papel[]) => papeis.includes(mockDecodedToken.papel),
+      user,
+      token,
+      isAuthenticated: user !== null,
+      loading,
+      login,
+      logout,
+      hasRole: (...papeis: Papel[]) => user !== null && papeis.includes(user.papel),
     }),
-    [],
+    [user, token, loading, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
