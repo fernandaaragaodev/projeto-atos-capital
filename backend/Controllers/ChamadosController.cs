@@ -92,6 +92,7 @@ public class ChamadosController : ControllerBase
         [FromQuery] StatusEnum? status,
         [FromQuery] PrioridadeEnum? prioridade,
         [FromQuery] int? agenteId,
+        [FromQuery] string? busca,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = PageSizePadrao)
     {
@@ -118,6 +119,17 @@ public class ChamadosController : ControllerBase
         if (status.HasValue) query = query.Where(c => c.Status == status.Value);
         if (prioridade.HasValue) query = query.Where(c => c.Prioridade == prioridade.Value);
         if (agenteId.HasValue) query = query.Where(c => c.AgenteId == agenteId.Value);
+
+        // Busca livre (case-insensitive) por código, usuário, empresa ou produto
+        if (!string.IsNullOrWhiteSpace(busca))
+        {
+            var termo = $"%{busca.Trim()}%";
+            query = query.Where(c =>
+                EF.Functions.ILike(c.CodigoPublico, termo) ||
+                EF.Functions.ILike(c.Usuario.Nome, termo) ||
+                EF.Functions.ILike(c.GrupoEmpresa.Nome, termo) ||
+                EF.Functions.ILike(c.Produto, termo));
+        }
 
         var total = await query.CountAsync();
         var incluirNotasInternas = usuario.EhEquipe;
