@@ -99,6 +99,15 @@ export interface PaginaChamados {
   totalPaginas: number;
 }
 
+/** GET /api/Chamados/resumo — contadores para os cards do topo da fila, já filtrados pelas regras de papel. */
+export interface ResumoChamados {
+  total: number;
+  emAberto: number;
+  aguardandoCliente: number;
+  comSlaEstourado: number;
+  comSlaPertoDeEstourar: number;
+}
+
 // =====================================================================
 // Detalhe do chamado (backend/DTOs/ChamadoDetalheDto.cs)
 // =====================================================================
@@ -273,7 +282,7 @@ export interface TotalPorCategoria {
 }
 
 /** GET /api/Relatorios/resumo. */
-export interface ResumoChamados {
+export interface ResumoRelatorio {
   totalChamados: number;
   totaisPorStatus: TotalPorStatus[];
   abertosHoje: number;

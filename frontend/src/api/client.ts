@@ -1,6 +1,6 @@
 import { notify } from '@/utils/notify';
 
-const BASE_URL = import.meta.env.VITE_API_URL;
+export const BASE_URL = import.meta.env.VITE_API_URL;
 
 /** Chave usada para o token de sessão em sessionStorage (lido/gravado também pelo login e pelo AuthContext). */
 export const TOKEN_STORAGE_KEY = 'atos:token';
@@ -17,6 +17,16 @@ export function clearToken(): void {
   sessionStorage.removeItem(TOKEN_STORAGE_KEY);
 }
 
+/** Monta a query string ignorando valores nulos/indefinidos/vazios. */
+export function toQueryString(params: Record<string, string | number | boolean | null | undefined>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== null && value !== undefined && value !== '') search.set(key, String(value));
+  }
+  const query = search.toString();
+  return query ? `?${query}` : '';
+}
+
 export class ApiError extends Error {
   status: number;
 
@@ -28,7 +38,7 @@ export class ApiError extends Error {
 }
 
 interface RequestOptions extends Omit<RequestInit, 'body'> {
-  body?: BodyInit | Record<string, unknown> | null;
+  body?: BodyInit | object | number | string | boolean | null;
 }
 
 function isFormData(body: RequestOptions['body']): body is FormData {
