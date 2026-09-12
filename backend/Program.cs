@@ -27,6 +27,19 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
 builder.Services.AddRepositories();
 
+// CORS: origens permitidas configuráveis via appsettings (lista vazia por padrão = nada liberado)
+var origensPermitidas = builder.Configuration.GetSection("Cors:OrigensPermitidas").Get<string[]>() ?? [];
+const string PoliticaCorsFrontend = "PoliticaCorsFrontend";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(PoliticaCorsFrontend, policy =>
+    {
+        policy.WithOrigins(origensPermitidas)
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 // Serviços da Aplicação
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<RelatorioService>();
@@ -99,6 +112,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// CORS precisa vir antes da autenticação/autorização
+app.UseCors(PoliticaCorsFrontend);
 
 // Ativa Autenticação e Autorização
 app.UseAuthentication();
