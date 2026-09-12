@@ -191,6 +191,24 @@ public class ChamadosController : ControllerBase
         return Ok(agentesDisponiveis);
     }
 
+    [HttpGet("agentes")]
+    [Authorize(Roles = RolesEquipe)]
+    public async Task<IActionResult> ObterAgentes()
+    {
+        var agentes = await _usuarios.ObterTodos()
+            .Where(u => u.Papel == PapelEnum.AGENTE)
+            .OrderBy(u => u.Nome)
+            .Select(u => new
+            {
+                u.Id,
+                u.Nome,
+                u.Email
+            })
+            .ToListAsync();
+
+        return Ok(agentes);
+    }
+
     // =====================================================================
     // GET /api/Chamados/{id} e /codigo/{codigoPublico} — detalhe + histórico (RF02)
     // =====================================================================
