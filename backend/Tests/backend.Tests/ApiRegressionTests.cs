@@ -195,6 +195,65 @@ public sealed class ApiRegressionTests : IAsyncLifetime
         Assert.Equal(1, await context.LogsAuditoria.CountAsync(l => l.Acao == "ALERTA_SLA_RECONHECIDO"));
     }
 
+    [Fact]
+    public async Task RotaMeRetornaUsuarioAutenticadoESemTokenDa401()
+    {
+        await Exigir(await _http.GetAsync("/api/Auth/me"), HttpStatusCode.Unauthorized);
+
+        await Login("cliente");
+        var me = await _http.GetFromJsonAsync<JsonElement>("/api/Auth/me");
+        Assert.Equal("cliente@test.invalid", me.GetProperty("email").GetString());
+        Assert.Equal("Cliente", me.GetProperty("nome").GetString());
+        Assert.Equal((int)PapelEnum.CLIENTE, me.GetProperty("papel").GetInt32());
+        Assert.Equal("Grupo A", me.GetProperty("grupoEmpresaNome").GetString());
+        Assert.False(me.TryGetProperty("senhaHash", out _));
+    }
+
+    [Fact]
+    public async Task ResumoEBuscaDeChamadosIsolamPorGrupoEmpresa()
+    {
+        var id = await CriarChamado(); // cliente (Grupo A), Produto "Plataforma"
+
+        await Login("cliente");
+        // CriarChamado atribui automaticamente ao único agente livre ("agente@test.invalid"),
+        // então o chamado nasce EM_ANDAMENTO (não ABERTO) — só o total é verificado aqui.
+        var resumoCliente = await _http.GetFromJsonAsync<JsonElement>("/api/Chamados/resumo");
+        Assert.Equal(1, resumoCliente.GetProperty("total").GetInt32());
+
+        var buscaCliente = await _http.GetFromJsonAsync<JsonElement>("/api/Chamados?busca=plataforma");
+        Assert.Equal(1, buscaCliente.GetProperty("total").GetInt32());
+
+        await Login("outro");
+        var resumoOutro = await _http.GetFromJsonAsync<JsonElement>("/api/Chamados/resumo");
+        Assert.Equal(0, resumoOutro.GetProperty("total").GetInt32());
+
+        var buscaOutro = await _http.GetFromJsonAsync<JsonElement>("/api/Chamados?busca=plataforma");
+        Assert.Equal(0, buscaOutro.GetProperty("total").GetInt32());
+        Assert.DoesNotContain(id.ToString(), buscaOutro.GetProperty("itens").EnumerateArray().Select(c => c.GetProperty("id").ToString()));
+    }
+
+    [Fact]
+    public async Task ListaDeAgentesExigePapelDeEquipe()
+    {
+        await Login("cliente");
+        await Exigir(await _http.GetAsync("/api/Chamados/agentes"), HttpStatusCode.Forbidden);
+
+        await Login("admin");
+        var agentes = await _http.GetFromJsonAsync<JsonElement>("/api/Chamados/agentes");
+        Assert.Contains(agentes.EnumerateArray(), a => a.GetProperty("email").GetString() == "agente@test.invalid");
+    }
+
+    [Fact]
+    public async Task SlaCategoriasRetornaOQueEstaCadastradoNoSeed()
+    {
+        await Login("cliente");
+        var produtos = await _http.GetFromJsonAsync<JsonElement>("/api/SlaCategorias");
+        var plataforma = Assert.Single(produtos.EnumerateArray(), p => p.GetProperty("produto").GetString() == DataSeeder.ProdutoPadrao);
+        var categorias = plataforma.GetProperty("categorias").EnumerateArray().ToList();
+        Assert.Equal(DataSeeder.CategoriasPadrao.Length, categorias.Count);
+        Assert.All(categorias, c => Assert.Equal(4, c.GetProperty("prioridades").GetArrayLength()));
+    }
+
     private async Task Login(string usuario)
     {
         var response = await _http.PostAsJsonAsync("/api/Auth/login", new LoginDto(usuario + "@test.invalid"));
