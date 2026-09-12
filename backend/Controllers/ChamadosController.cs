@@ -120,15 +120,17 @@ public class ChamadosController : ControllerBase
         if (prioridade.HasValue) query = query.Where(c => c.Prioridade == prioridade.Value);
         if (agenteId.HasValue) query = query.Where(c => c.AgenteId == agenteId.Value);
 
-        // Busca livre (case-insensitive) por código, usuário, empresa ou produto
+        // Busca livre (case-insensitive) por código, usuário, empresa ou produto.
+        // ToLower()+Contains() (em vez de EF.Functions.ILike, específico do Npgsql) traduz tanto
+        // para PostgreSQL (produção) quanto para SQLite (ApiRegressionTests.cs).
         if (!string.IsNullOrWhiteSpace(busca))
         {
-            var termo = $"%{busca.Trim()}%";
+            var termo = busca.Trim().ToLower();
             query = query.Where(c =>
-                EF.Functions.ILike(c.CodigoPublico, termo) ||
-                EF.Functions.ILike(c.Usuario.Nome, termo) ||
-                EF.Functions.ILike(c.GrupoEmpresa.Nome, termo) ||
-                EF.Functions.ILike(c.Produto, termo));
+                c.CodigoPublico.ToLower().Contains(termo) ||
+                c.Usuario.Nome.ToLower().Contains(termo) ||
+                c.GrupoEmpresa.Nome.ToLower().Contains(termo) ||
+                c.Produto.ToLower().Contains(termo));
         }
 
         var total = await query.CountAsync();
