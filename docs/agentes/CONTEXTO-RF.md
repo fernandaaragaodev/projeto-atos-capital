@@ -49,6 +49,20 @@ Hoje está registrado `EventoServiceNoop` no `Program.cs`. Quem produz eventos i
 - Erros de build em arquivos que não são seus são provavelmente edições em andamento de um colega: espere 30–60 s e rode o build de novo. **Nunca "conserte" arquivo de outro dono** — se persistir por >5 min, `maestri ask` ao dono.
 - Ao terminar cada RF, escreva um resumo curto (endpoints, decisões, o que falta) em `docs/agentes/RELATORIO-<seu-nome>.md` e avise o maestro.
 
+## Decisão: serialização de enums em JSON
+Card Trello "Definir serialização de enums (manter int e converter no front vs JsonStringEnumConverter)".
+
+**Escolhida a Opção A:** a API continua mandando enums (`Status`, `Prioridade`, `Papel`, `TipoInteracao` etc.) como
+números inteiros (comportamento padrão do `System.Text.Json`, sem `JsonStringEnumConverter`). A tradução para nomes
+legíveis ("Aberto", "Em andamento"...) fica por conta do frontend (card "Mappers" do Frontend).
+
+**Por quê:** não muda nada pra quem já recebe os webhooks (n8n) nem exige tocar em `Program.cs` — é literalmente o
+que já está implementado hoje. A Opção B (mandar os nomes em texto) exigiria ajustar o n8n e os testes de
+regressão, sem ganho que justifique o custo neste momento.
+
+**Se algum dia migrar para a Opção B:** o único ponto de mudança é `backend/Program.cs`, no
+`AddJsonOptions`/`AddControllers` (adicionar `JsonStringEnumConverter` a `options.JsonSerializerOptions.Converters`).
+
 ## Padrões de qualidade e segurança (obrigatórios)
 - Segurança primeiro: valide entrada, aplique `[Authorize]` + checagem de papel e de grupo (cliente NUNCA vê/altera chamado de outro `GrupoEmpresaId`), retorne 403 (não 404) para acesso negado a recurso que existe, 404 para inexistente.
 - Auditoria em toda mutação (`LogAuditoria`).
