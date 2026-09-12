@@ -118,12 +118,12 @@ using (var scope = app.Services.CreateScope())
     var usuarios = scope.ServiceProvider.GetRequiredService<IBaseRepository<Usuario>>();
     var slaCategorias = scope.ServiceProvider.GetRequiredService<IBaseRepository<SLACategoria>>();
 
-    // Garante a existência do grupo
+    // Garante a existência do grupo (empresa matriz Atos Capital)
     var grupo = gruposEmpresas.ObterTodos().FirstOrDefault(g => g.Nome == "Atos Capital");
     if (grupo == null)
     {
-        grupo = new GrupoEmpresa 
-        { 
+        grupo = new GrupoEmpresa
+        {
             Nome = "Atos Capital",
             IdExterno = "GRP-ATOS-001",
             Tipo = TipoGrupoEnum.MATRIZ
@@ -132,31 +132,44 @@ using (var scope = app.Services.CreateScope())
         gruposEmpresas.SalvarAlteracoes();
     }
 
-    // Garante a criação dos usuários de teste caso não existam
-    if (!usuarios.ObterTodos().Any())
+    // Garante a existência de uma segunda empresa cliente, para testar isolamento de dados entre clientes
+    var grupoNortec = gruposEmpresas.ObterTodos().FirstOrDefault(g => g.Nome == "Cliente Nortec");
+    if (grupoNortec == null)
     {
-        usuarios.AddRange([
-            new Usuario
-            {
-                Nome = "Admin Atos",
-                Email = "admin@atos.com",
-                SenhaHash = "123456",
-                IdExterno = "USR-ADM-001",
-                Papel = PapelEnum.ADMIN,
-                GrupoEmpresaId = grupo.Id
-            },
-            new Usuario
-            {
-                Nome = "Cliente Teste",
-                Email = "cliente@atos.com",
-                SenhaHash = "123456",
-                IdExterno = "USR-CLI-001",
-                Papel = PapelEnum.CLIENTE,
-                GrupoEmpresaId = grupo.Id
-            }
-        ]);
-        usuarios.SalvarAlteracoes();
+        grupoNortec = new GrupoEmpresa
+        {
+            Nome = "Cliente Nortec",
+            IdExterno = "GRP-NORTEC-001",
+            Tipo = TipoGrupoEnum.MATRIZ
+        };
+        gruposEmpresas.Add(grupoNortec);
+        gruposEmpresas.SalvarAlteracoes();
     }
+
+    // Garante a criação de cada usuário de teste, checando por e-mail antes de inserir (idempotente)
+    void GarantirUsuario(string nome, string email, string idExterno, PapelEnum papel, int grupoEmpresaId)
+    {
+        if (!usuarios.ObterTodos().Any(u => u.Email == email))
+        {
+            usuarios.Add(new Usuario
+            {
+                Nome = nome,
+                Email = email,
+                SenhaHash = "123456",
+                IdExterno = idExterno,
+                Papel = papel,
+                GrupoEmpresaId = grupoEmpresaId
+            });
+        }
+    }
+
+    GarantirUsuario("Admin Atos", "admin@atos.com", "USR-ADM-001", PapelEnum.ADMIN, grupo.Id);
+    GarantirUsuario("Cliente Teste", "cliente@atos.com", "USR-CLI-001", PapelEnum.CLIENTE, grupo.Id);
+    GarantirUsuario("Agente Atos", "agente@atos.com", "USR-AGT-001", PapelEnum.AGENTE, grupo.Id);
+    GarantirUsuario("Supervisor Atos", "supervisor@atos.com", "USR-SUP-001", PapelEnum.SUPERVISOR, grupo.Id);
+    GarantirUsuario("Cliente Nortec", "cliente@nortec.com", "USR-CLI-002", PapelEnum.CLIENTE, grupoNortec.Id);
+
+    usuarios.SalvarAlteracoes();
 
     // RF07 — Regras de SLA padrão (idempotente): Plataforma x Acesso/Erro/Dúvida x 4 prioridades
     DataSeeder.SeedSlaCategorias(slaCategorias);
