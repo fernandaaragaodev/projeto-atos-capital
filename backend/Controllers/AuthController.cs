@@ -1,7 +1,9 @@
+using System.Security.Claims;
 using backend.Data.Repositories;
 using backend.DTOs;
 using backend.Models;
 using backend.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -39,6 +41,35 @@ public class AuthController : ControllerBase
             usuario.Email,
             usuario.Papel,
             usuario.GrupoEmpresaId
+        ));
+    }
+
+    [HttpGet("me")]
+    [Authorize]
+    public async Task<ActionResult<UsuarioMeDto>> Me()
+    {
+        var idClaim = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
+        if (string.IsNullOrWhiteSpace(idClaim) || !int.TryParse(idClaim, out var id))
+        {
+            return Unauthorized();
+        }
+
+        var usuario = await _usuarios.ObterTodos()
+            .Include(u => u.GrupoEmpresa)
+            .FirstOrDefaultAsync(u => u.Id == id);
+
+        if (usuario == null)
+        {
+            return Unauthorized();
+        }
+
+        return Ok(new UsuarioMeDto(
+            usuario.Id,
+            usuario.Nome,
+            usuario.Email,
+            usuario.Papel,
+            usuario.GrupoEmpresaId,
+            usuario.GrupoEmpresa.Nome
         ));
     }
 }
