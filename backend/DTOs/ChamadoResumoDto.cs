@@ -36,3 +36,12 @@ public record PaginaChamadosDto(
     int Total,
     int TotalPaginas
 );
+
+/// <summary>Contadores de GET /api/Chamados/resumo, já filtrados pelas mesmas regras de papel da listagem.</summary>
+public record ResumoChamadosDto(
+    int Total,
+    int EmAberto,
+    int AguardandoCliente,
+    int ComSlaEstourado,
+    int ComSlaPertoDeEstourar
+);

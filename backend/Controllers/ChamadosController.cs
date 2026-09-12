@@ -166,6 +166,44 @@ public class ChamadosController : ControllerBase
         return Ok(new PaginaChamadosDto(dtos, page, pageSize, total, totalPaginas));
     }
 
+    // =====================================================================
+    // GET /api/Chamados/resumo — contadores para os cards do topo da fila (RF12)
+    // =====================================================================
+
+    [HttpGet("resumo")]
+    public async Task<IActionResult> ObterResumo()
+    {
+        var usuario = ObterUsuarioLogado();
+        if (usuario is null) return TokenInvalido();
+
+        IQueryable<Chamado> query = _chamados.ObterTodos().AsNoTracking();
+
+        // Mesmas regras de visibilidade do GET /api/Chamados
+        if (usuario.EhCliente)
+        {
+            query = query.Where(c => c.GrupoEmpresaId == usuario.GrupoEmpresaId);
+        }
+        else if (usuario.EhAgente)
+        {
+            query = query.Where(c => c.AgenteId == null || c.AgenteId == usuario.Id);
+        }
+
+        var agora = DateTime.UtcNow;
+        var limiteRisco = agora.AddHours(2);
+
+        var total = await query.CountAsync();
+        var emAberto = await query.CountAsync(c => c.Status == StatusEnum.ABERTO);
+        var aguardandoCliente = await query.CountAsync(c => c.Status == StatusEnum.AGUARDANDO_CLIENTE);
+        var comSlaEstourado = await query.CountAsync(c =>
+            c.PrazoResolucao != null && c.Status != StatusEnum.RESOLVIDO && c.Status != StatusEnum.FECHADO &&
+            c.PrazoResolucao.Value < agora);
+        var comSlaPertoDeEstourar = await query.CountAsync(c =>
+            c.PrazoResolucao != null && c.Status != StatusEnum.RESOLVIDO && c.Status != StatusEnum.FECHADO &&
+            c.PrazoResolucao.Value >= agora && c.PrazoResolucao.Value <= limiteRisco);
+
+        return Ok(new ResumoChamadosDto(total, emAberto, aguardandoCliente, comSlaEstourado, comSlaPertoDeEstourar));
+    }
+
     [HttpGet("agentes-disponiveis")]
     [Authorize(Roles = RolesEquipe)]
     public async Task<IActionResult> ObterAgentesDisponiveis()
