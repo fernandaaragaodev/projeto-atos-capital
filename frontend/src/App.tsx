@@ -2,6 +2,8 @@ import { Navigate, Route, Routes, useNavigate, useLocation } from 'react-router-
 import { Tabs, Tab, Box } from '@mui/material';
 import { MainLayout } from '@/layouts/MainLayout';
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
+import { RequireAuth } from '@/auth/RequireAuth';
+import { Login } from '@/pages/Login';
 import { PaginasDisponiveis } from '@/pages/PaginasDisponiveis';
 import { TitulosAPagar } from '@/pages/TitulosAPagar';
 import { Chamados } from '@/pages/Chamados';
@@ -32,11 +34,12 @@ function AppTabs() {
   );
 }
 
+/** Telas autenticadas do sistema, dentro do layout com menu lateral. */
 function AppShell() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
 
   return (
-    <MainLayout userName={user.nome} companyName={user.grupoEmpresaNome}>
+    <MainLayout userName={user?.nome} companyName={user?.grupoEmpresaNome} onLogout={logout}>
       <AppTabs />
       <Routes>
         <Route path="/" element={<Navigate to="/chamados" replace />} />
@@ -53,7 +56,17 @@ function AppShell() {
 export default function App() {
   return (
     <AuthProvider>
-      <AppShell />
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/*"
+          element={
+            <RequireAuth>
+              <AppShell />
+            </RequireAuth>
+          }
+        />
+      </Routes>
     </AuthProvider>
   );
 }

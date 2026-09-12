@@ -26,6 +26,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
+import LogoutIcon from '@mui/icons-material/Logout';
 import { useTranslation } from 'react-i18next';
 import { useThemeMode } from '@/theme/ThemeModeProvider';
 import { logos } from '@/theme/tokens';
@@ -38,6 +39,7 @@ interface MainLayoutProps {
   children: ReactNode;
   userName?: string;
   companyName?: string;
+  onLogout?: () => void;
 }
 
 const menuItems = [
@@ -49,7 +51,12 @@ const menuItems = [
 ] as const;
 
 /** Layout principal: menu lateral com degradê da marca + header superior. */
-export function MainLayout({ children, userName = 'Usuário', companyName = 'Atos Capital' }: MainLayoutProps) {
+export function MainLayout({
+  children,
+  userName = 'Usuário',
+  companyName = 'Atos Capital',
+  onLogout,
+}: MainLayoutProps) {
   const { t } = useTranslation();
   const { mode, toggleMode } = useThemeMode();
   const theme = useTheme();
@@ -168,6 +175,14 @@ export function MainLayout({ children, userName = 'Usuário', companyName = 'Ato
               </Typography>
             </Box>
           </Stack>
+
+          {onLogout && (
+            <Tooltip title="Sair">
+              <IconButton size="small" onClick={onLogout} sx={{ ml: 1 }}>
+                <LogoutIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
         </Stack>
 
         <Box sx={{ flexGrow: 1, p: 3, bgcolor: theme.palette.background.default }}>{children}</Box>

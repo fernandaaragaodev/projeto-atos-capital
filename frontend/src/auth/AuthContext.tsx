@@ -1,4 +1,6 @@
-import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { login as apiLogin, me as apiMe } from '@/api/auth';
+import { getToken, setToken, clearToken } from '@/api/client';
 import type { Papel } from '@/types/chamado';
 
 export interface AuthUser {
@@ -11,43 +13,65 @@ export interface AuthUser {
 }
 
 interface AuthContextValue {
-  user: AuthUser;
+  user: AuthUser | null;
+  isAuthenticated: boolean;
+  loading: boolean;
+  login: (email: string, senha: string) => Promise<void>;
+  logout: () => void;
   hasRole: (...papeis: Papel[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 /**
- * RF10 — Sincronização de usuários via SSO/JWT.
- *
- * Em produção, o portal Atos Capital emite um JWT assinado (usuário + grupo empresa)
- * ao acessar esta ferramenta; a API de suporte valida a assinatura e faz o upsert do
- * usuário/grupo de forma transparente (Seção 6.2 do Termo de Referência).
- *
- * Este provider decodifica esse token (hoje simulado) uma única vez e expõe o usuário
- * autenticado para toda a árvore de componentes. Ponto de integração real:
- * substituir `mockDecodedToken` pela leitura/validação do JWT recebido do portal
- * (ex.: querystring `?token=` ou cookie compartilhado) antes de renderizar <App />.
+ * RF10 — Autenticação real via portal Atos Capital.
+ * No boot do app: se existe token guardado, busca o usuário em GET /auth/me.
+ * Se o token for inválido/expirado, a API responde 401, o client.ts dispara
+ * o evento "auth:unauthorized" e este provider desloga automaticamente.
  */
-const mockDecodedToken: AuthUser = {
-  id: 'usr-001',
-  nome: 'Victor Breno Santos Rodrigues',
-  email: 'victor.rodrigues@atoscapital.com.br',
-  grupoEmpresaId: 'grp-001',
-  grupoEmpresaNome: 'Atos Capital — Matriz',
-  papel: 'supervisor',
-};
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      user: mockDecodedToken,
-      hasRole: (...papeis: Papel[]) => papeis.includes(mockDecodedToken.papel),
-    }),
-    [],
-  );
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    apiMe()
+      .then(setUser)
+      .catch(() => {
+        clearToken();
+        setUser(null);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    const handleUnauthorized = () => setUser(null);
+    window.addEventListener('auth:unauthorized', handleUnauthorized);
+    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+  }, []);
+
+  const login = async (email: string, senha: string) => {
+    const { token, usuario } = await apiLogin(email, senha);
+    setToken(token);
+    setUser(usuario);
+  };
+
+  const logout = () => {
+    clearToken();
+    setUser(null);
+  };
+
+  const hasRole = (...papeis: Papel[]) => Boolean(user && papeis.includes(user.papel));
+
+  return (
+    <AuthContext.Provider value={{ user, isAuthenticated: Boolean(user), loading, login, logout, hasRole }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
