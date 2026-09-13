@@ -18,3 +18,13 @@ export async function me(): Promise<AuthUser> {
   const data = await apiGet<AuthUser>('/auth/me');
   return mapUsuario(data);
 }
+
+/**
+ * POST /auth/esqueci-senha — dispara o e-mail de redefinição de senha.
+ * A API responde 204 tanto se o e-mail existir quanto se não existir
+ * (não revelamos se um e-mail está cadastrado), então a tela sempre
+ * mostra a mesma mensagem de sucesso.
+ */
+export async function esqueciSenha(email: string): Promise<void> {
+  await apiPost<void>('/auth/esqueci-senha', { email });
+}

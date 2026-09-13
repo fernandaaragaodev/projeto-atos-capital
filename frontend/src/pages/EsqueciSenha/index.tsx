@@ -159,7 +159,7 @@ export function EsqueciSenha() {
                 )}
 
                 <Button type="submit" variant="contained" fullWidth disabled={enviando} sx={{ mt: 2, py: 1.1 }}>
-                  {enviando ? 'Enviando...' : 'Enviar link de redefinição'}
+                  {enviando ? 'Enviando...' : 'Continuar'}
                 </Button>
 
                 <Button
