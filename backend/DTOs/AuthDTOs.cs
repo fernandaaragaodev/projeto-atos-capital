@@ -6,6 +6,11 @@ public record LoginDto(
     string Email
 );
 
+/// <summary>Token JWT assinado pelo portal Atos Capital, recebido via SSO (ver POST /api/Auth/sso).</summary>
+public record SsoLoginDto(
+    string Token
+);
+
 public record TokenResponseDto(
     string Token,
     string Nome,

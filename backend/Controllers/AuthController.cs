@@ -14,11 +14,13 @@ namespace backend.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly IBaseRepository<Usuario> _usuarios;
+    private readonly IBaseRepository<GrupoEmpresa> _grupos;
     private readonly AuthService _authService;
 
-    public AuthController(IBaseRepository<Usuario> usuarios, AuthService authService)
+    public AuthController(IBaseRepository<Usuario> usuarios, IBaseRepository<GrupoEmpresa> grupos, AuthService authService)
     {
         _usuarios = usuarios;
+        _grupos = grupos;
         _authService = authService;
     }
 
@@ -31,6 +33,40 @@ public class AuthController : ControllerBase
         if (usuario == null)
         {
             return Unauthorized("E-mail inválido.");
+        }
+
+        var token = _authService.GerarToken(usuario);
+
+        return Ok(new TokenResponseDto(
+            token,
+            usuario.Nome,
+            usuario.Email,
+            usuario.Papel,
+            usuario.GrupoEmpresaId
+        ));
+    }
+
+    /// <summary>
+    /// SSO: troca um token assinado pelo portal Atos Capital por um token da API de suporte,
+    /// fazendo upsert transparente do usuário e do grupo empresa (sem sincronização em lote prévia).
+    /// </summary>
+    [HttpPost("sso")]
+    public async Task<ActionResult<TokenResponseDto>> Sso([FromBody] SsoLoginDto dto)
+    {
+        var claims = _authService.ValidarTokenSso(dto.Token);
+        if (claims == null)
+        {
+            return Unauthorized("Token SSO inválido ou expirado.");
+        }
+
+        Usuario usuario;
+        try
+        {
+            usuario = await _authService.UpsertUsuarioSsoAsync(claims, _grupos, _usuarios);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
         }
 
         var token = _authService.GerarToken(usuario);
