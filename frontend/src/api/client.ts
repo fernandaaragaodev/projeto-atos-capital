@@ -65,7 +65,7 @@ function extractMessage(data: unknown, fallback: string): string {
 
 /**
  * Camada única de chamadas HTTP da aplicação.
- * 401 → limpa a sessão e redireciona para /login. 403/409 → notifica via toast com a mensagem da API.
+ * 401 → limpa a sessão e redireciona para /sso (não há tela de login própria). 403/409 → notifica via toast com a mensagem da API.
  */
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { body, headers, ...rest } = options;
@@ -94,7 +94,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
 
   if (response.status === 401) {
     clearToken();
-    window.location.assign('/login');
+    window.location.assign('/sso');
     throw new ApiError('Sessão expirada.', 401);
   }
 

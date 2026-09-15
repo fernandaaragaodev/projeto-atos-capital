@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form';
 import * as yup from 'yup';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth/AuthContext';
+import { login as apiLogin } from '@/api/auth';
 
 interface LoginValues {
   email: string;
@@ -36,7 +37,8 @@ export function useApp() {
     setErro(null);
     setEnviando(true);
     try {
-      await login(values.email, values.senha);
+      const { token } = await apiLogin(values.email, values.senha);
+      await login(token);
       const destino = (location.state as LocationState | null)?.from?.pathname ?? '/chamados';
       navigate(destino, { replace: true });
     } catch {

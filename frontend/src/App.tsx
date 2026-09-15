@@ -8,6 +8,7 @@ import { TitulosAPagar } from '@/pages/TitulosAPagar';
 import { Chamados } from '@/pages/Chamados';
 import { ChamadoDetalhe } from '@/pages/ChamadoDetalhe';
 import { Relatorios } from '@/pages/Relatorios';
+import { Sso } from '@/pages/Sso';
 
 const routes = [
   { path: '/chamados', label: 'Chamados' },
@@ -56,9 +57,17 @@ function AppShell() {
 export default function App() {
   return (
     <AuthProvider>
-      <RequireAuth>
-        <AppShell />
-      </RequireAuth>
+      <Routes>
+        <Route path="/sso" element={<Sso />} />
+        <Route
+          path="/*"
+          element={
+            <RequireAuth>
+              <AppShell />
+            </RequireAuth>
+          }
+        />
+      </Routes>
     </AuthProvider>
   );
 }
