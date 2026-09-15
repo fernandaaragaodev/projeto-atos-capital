@@ -1,121 +1,31 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { notify } from '@/utils/notify';
-import { useAuth } from '@/auth/AuthContext';
 import type { ActiveFilter } from '@/components/FilterChips';
 import { STATUS_ABERTOS, type Chamado } from '@/types/chamado';
-import { calcularSituacaoSla } from './slaUtils';
 import type { NovoChamadoValues } from './components/NovoChamadoModal/useApp';
+import { listar, resumo as buscarResumo, criar } from '@/api/chamados';
+import { ApiError } from '@/api/client';
 
-const AGORA = new Date();
-const horasAtras = (h: number) => new Date(AGORA.getTime() - h * 3_600_000).toISOString();
-const horasNaFrente = (h: number) => new Date(AGORA.getTime() + h * 3_600_000).toISOString();
-
-const mockChamados: Chamado[] = [
-  {
-    id: '1',
-    codigoPublico: 'CH-2026-0091',
-    usuarioId: 'usr-010',
-    usuarioNome: 'Renata Alves',
-    grupoEmpresaId: 'grp-002',
-    grupoEmpresaNome: 'Cliente Nortec Filial SP',
-    produto: 'Joe SFA B1',
-    categoria: 'Integração SAP B1',
-    descricao: 'Pedido de venda não sincroniza com o SAP Business One após atualização.',
-    status: 'em_andamento',
-    prioridade: 'alta',
-    agenteId: 'agt-01',
-    agenteNome: 'Marcos Vinícius',
-    slaPrazo: horasNaFrente(1),
-    criadoEm: horasAtras(6),
-    anexos: [],
-  },
-  {
-    id: '2',
-    codigoPublico: 'CH-2026-0092',
-    usuarioId: 'usr-011',
-    usuarioNome: 'Diego Ferreira',
-    grupoEmpresaId: 'grp-003',
-    grupoEmpresaNome: 'Cliente Vitalle Matriz',
-    produto: 'Portal Atos Capital',
-    categoria: 'Acesso e login',
-    descricao: 'Usuário não consegue acessar o portal, erro de token expirado.',
-    status: 'aberto',
-    prioridade: 'critica',
-    slaPrazo: horasNaFrente(-3),
-    criadoEm: horasAtras(9),
-    anexos: [],
-  },
-  {
-    id: '3',
-    codigoPublico: 'CH-2026-0093',
-    usuarioId: 'usr-012',
-    usuarioNome: 'Paula Menezes',
-    grupoEmpresaId: 'grp-002',
-    grupoEmpresaNome: 'Cliente Nortec Filial SP',
-    produto: 'Joe SFA B1',
-    categoria: 'Relatórios',
-    descricao: 'Relatório de comissão de vendas apresenta valores duplicados.',
-    status: 'aguardando_cliente',
-    prioridade: 'media',
-    agenteId: 'agt-02',
-    agenteNome: 'Camila Torres',
-    slaPrazo: horasNaFrente(20),
-    criadoEm: horasAtras(30),
-    anexos: [],
-  },
-  {
-    id: '4',
-    codigoPublico: 'CH-2026-0087',
-    usuarioId: 'usr-013',
-    usuarioNome: 'João Pedro Lima',
-    grupoEmpresaId: 'grp-004',
-    grupoEmpresaNome: 'Cliente Ferrari Matriz',
-    produto: 'Portal Atos Capital',
-    categoria: 'Dúvida funcional',
-    descricao: 'Como configurar alçadas de aprovação no módulo financeiro?',
-    status: 'resolvido',
-    prioridade: 'baixa',
-    agenteId: 'agt-01',
-    agenteNome: 'Marcos Vinícius',
-    slaPrazo: horasAtras(2),
-    criadoEm: horasAtras(48),
-    fechadoEm: horasAtras(4),
-    anexos: [],
-  },
-  {
-    id: '5',
-    codigoPublico: 'CH-2026-0080',
-    usuarioId: 'usr-010',
-    usuarioNome: 'Renata Alves',
-    grupoEmpresaId: 'grp-002',
-    grupoEmpresaNome: 'Cliente Nortec Filial SP',
-    produto: 'Joe SFA B1',
-    categoria: 'Integração SAP B1',
-    descricao: 'Cadastro de novos produtos não replica pro catálogo do portal.',
-    status: 'fechado',
-    prioridade: 'media',
-    agenteId: 'agt-02',
-    agenteNome: 'Camila Torres',
-    slaPrazo: horasAtras(70),
-    criadoEm: horasAtras(96),
-    fechadoEm: horasAtras(72),
-    anexos: [],
-  },
-];
-
+// TODO: sem endpoint de agentes com o shape { id: string, nome: string } usado pela atribuição
+// (ainda local/não persistida) em ChamadoDetalhe — troca pendente para consumir GET /api/Chamados/agentes.
 export const AGENTES = [
   { id: 'agt-01', nome: 'Marcos Vinícius' },
   { id: 'agt-02', nome: 'Camila Torres' },
   { id: 'agt-03', nome: 'Juliana Prado' },
 ];
 
-let sequencia = mockChamados.length;
+interface Resumo {
+  total: number;
+  abertos: number;
+  estourados: number;
+  aguardandoCliente: number;
+}
+
+const RESUMO_VAZIO: Resumo = { total: 0, abertos: 0, estourados: 0, aguardandoCliente: 0 };
 
 export function useApp() {
-  // RequireAuth garante que esta tela só renderiza com o usuário já carregado.
-  const { user: usuarioLogado } = useAuth();
-  const user = usuarioLogado!;
-  const [chamados, setChamados] = useState<Chamado[]>(mockChamados);
+  const [chamados, setChamados] = useState<Chamado[]>([]);
+  const [resumo, setResumo] = useState<Resumo>(RESUMO_VAZIO);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([
     { id: 'status-abertos', label: 'Status: em aberto' },
@@ -123,6 +33,34 @@ export function useApp() {
   const [modalOpen, setModalOpen] = useState(false);
 
   const somenteAbertos = activeFilters.some((f) => f.id === 'status-abertos');
+
+  const carregarChamados = useCallback(async () => {
+    try {
+      const pagina = await listar({ pageSize: 100 });
+      setChamados(pagina.itens);
+    } catch (err) {
+      notify.error(err instanceof ApiError ? err.message : 'Não foi possível carregar os chamados.');
+    }
+  }, []);
+
+  const carregarResumo = useCallback(async () => {
+    try {
+      const dto = await buscarResumo();
+      setResumo({
+        total: dto.total,
+        abertos: dto.emAberto,
+        estourados: dto.comSlaEstourado,
+        aguardandoCliente: dto.aguardandoCliente,
+      });
+    } catch {
+      // Contadores do topo não são críticos: mantém os últimos valores conhecidos.
+    }
+  }, []);
+
+  useEffect(() => {
+    carregarChamados();
+    carregarResumo();
+  }, [carregarChamados, carregarResumo]);
 
   const filteredChamados = useMemo(() => {
     let lista = chamados;
@@ -142,41 +80,31 @@ export function useApp() {
     return lista;
   }, [chamados, searchTerm, somenteAbertos]);
 
-  const resumo = useMemo(() => {
-    const abertos = chamados.filter((c) => STATUS_ABERTOS.includes(c.status));
-    const estourados = abertos.filter((c) => calcularSituacaoSla(c) === 'estourado').length;
-    const aguardandoCliente = chamados.filter((c) => c.status === 'aguardando_cliente').length;
-    return { total: chamados.length, abertos: abertos.length, estourados, aguardandoCliente };
-  }, [chamados]);
-
   const removeFilter = (id: string) => setActiveFilters((prev) => prev.filter((f) => f.id !== id));
   const openNewModal = () => setModalOpen(true);
   const closeModal = () => setModalOpen(false);
 
-  const createChamado = (values: NovoChamadoValues) => {
-    sequencia += 1;
-    const novo: Chamado = {
-      id: String(sequencia),
-      codigoPublico: `CH-2026-${String(90 + sequencia).padStart(4, '0')}`,
-      usuarioId: user.id,
-      usuarioNome: user.nome,
-      grupoEmpresaId: user.grupoEmpresaId,
-      grupoEmpresaNome: user.grupoEmpresaNome,
-      produto: values.produto,
-      categoria: values.categoria,
-      descricao: values.descricao,
-      status: 'aberto',
-      prioridade: 'media',
-      slaPrazo: horasNaFrente(24),
-      criadoEm: new Date().toISOString(),
-      anexos: values.anexos ?? [],
-    };
-    setChamados((prev) => [novo, ...prev]);
-    notify.success(`Chamado ${novo.codigoPublico} aberto com sucesso`);
-    closeModal();
+  const createChamado = async (values: NovoChamadoValues) => {
+    try {
+      const resposta = await criar({
+        produto: values.produto,
+        categoria: values.categoria,
+        descricao: values.descricao,
+        prioridade: 'media',
+      });
+      notify.success(`Chamado ${resposta.codigoPublico} aberto com sucesso`);
+      closeModal();
+      await Promise.all([carregarChamados(), carregarResumo()]);
+    } catch (err) {
+      notify.error(err instanceof ApiError ? err.message : 'Não foi possível abrir o chamado.');
+    }
   };
 
-  const handleReload = () => notify.success('Fila atualizada');
+  const handleReload = () => {
+    carregarChamados();
+    carregarResumo();
+    notify.success('Fila atualizada');
+  };
   const handleExport = () => notify.success('Exportação iniciada');
 
   return {
