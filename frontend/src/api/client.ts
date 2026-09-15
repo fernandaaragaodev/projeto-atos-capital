@@ -57,6 +57,11 @@ async function parseBody(response: Response): Promise<unknown> {
 }
 
 function extractMessage(data: unknown, fallback: string): string {
+  // Vários endpoints (ex.: AuthController) devolvem só a string do erro (Unauthorized("..."),
+  // BadRequest("...")), não um objeto { message }.
+  if (typeof data === 'string' && data.length > 0) {
+    return data;
+  }
   if (data && typeof data === 'object' && 'message' in data && typeof (data as { message: unknown }).message === 'string') {
     return (data as { message: string }).message;
   }
