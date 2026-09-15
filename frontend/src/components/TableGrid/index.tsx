@@ -32,7 +32,7 @@ export interface RowAction<T> {
   onClick: (row: T) => void;
 }
 
-interface TableGridProps<T extends Record<string, unknown>> {
+interface TableGridProps<T extends object> {
   columns: Array<TableGridColumn<T>>;
   rows: T[];
   getRowId: (row: T) => string | number;
@@ -41,7 +41,7 @@ interface TableGridProps<T extends Record<string, unknown>> {
 }
 
 /** <TableGrid /> — Tabela com paginação, ordenação, seleção opcional e coluna de Ações no fim. */
-export function TableGrid<T extends Record<string, unknown>>({
+export function TableGrid<T extends object>({
   columns,
   rows,
   getRowId,
@@ -131,7 +131,7 @@ export function TableGrid<T extends Record<string, unknown>>({
                   )}
                   {columns.map((column) => (
                     <TableCell key={column.field}>
-                      {column.render ? column.render(row) : (row[column.field] as ReactNode)}
+                      {column.render ? column.render(row) : ((row as Record<string, unknown>)[column.field] as ReactNode)}
                     </TableCell>
                   ))}
                   {actions && actions.length > 0 && (

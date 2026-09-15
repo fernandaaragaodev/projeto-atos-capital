@@ -8,6 +8,9 @@ backend/uploads/
 # Node / Vite
 frontend/node_modules/
 frontend/dist/
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
 node_modules/
 .next/
 

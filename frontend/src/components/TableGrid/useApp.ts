@@ -12,7 +12,7 @@ interface UseTableGridParams<T> {
  * Estado e regra de negócio do <TableGrid />: paginação, ordenação e seleção.
  * O index.tsx cuida apenas do JSX.
  */
-export function useApp<T extends Record<string, unknown>>({
+export function useApp<T extends object>({
   rows,
   getRowId,
   defaultRowsPerPage = 10,
@@ -36,8 +36,8 @@ export function useApp<T extends Record<string, unknown>>({
     if (!orderBy) return rows;
     const field = orderBy;
     const sorted = [...rows].sort((a, b) => {
-      const aValue = a[field];
-      const bValue = b[field];
+      const aValue = (a as Record<string, unknown>)[field];
+      const bValue = (b as Record<string, unknown>)[field];
       if (aValue === bValue) return 0;
       const comparison = (aValue as string | number) > (bValue as string | number) ? 1 : -1;
       return order === 'asc' ? comparison : -comparison;
