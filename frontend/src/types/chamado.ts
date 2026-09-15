@@ -33,6 +33,9 @@ export interface Chamado {
   criadoEm: string; // ISO
   fechadoEm?: string; // ISO
   anexos: Anexo[];
+  /** Calculados pela API (evita recalcular no front quando o dado já vem do backend). */
+  slaEmRisco?: boolean;
+  slaEstourado?: boolean;
 }
 
 /** RF05 — interação pública (visível ao cliente) ou nota interna (visível só à equipe). */

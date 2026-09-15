@@ -2,9 +2,8 @@ using backend.Enums;
 
 namespace backend.Models;
 
-public class Interacao
+public class Interacao : BaseEntity
 {
-    public int Id { get; set; }
     public int ChamadoId { get; set; }
     public int AutorId { get; set; }
     public TipoInteracaoEnum Tipo { get; set; }

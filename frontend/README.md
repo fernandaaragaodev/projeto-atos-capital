@@ -10,6 +10,12 @@ npm run dev
 ```
 Abre em `http://localhost:5173`.
 
+## Subindo API e front juntos
+
+1. Copie `.env.example` para `.env` e ajuste `VITE_API_URL` se a API não estiver em `http://localhost:5170`.
+2. Suba a API do backend em `http://localhost:5170` (veja o README do `backend`).
+3. Rode `npm run dev` no front — chamadas para `/api/*` são redirecionadas (proxy) para a API configurada em `vite.config.ts`, evitando problemas de CORS em desenvolvimento.
+
 ## Padrão de componente
 
 ```

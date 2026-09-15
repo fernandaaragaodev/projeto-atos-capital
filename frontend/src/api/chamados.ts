@@ -1,78 +1,101 @@
-import { apiGet, apiPatch, apiPost } from './client';
-import { mapChamado, mapInteracao } from './mappers';
-import type { Chamado, ChamadoStatus, Interacao } from '@/types/chamado';
+import { request, toQueryString } from './client';
+import { chamadoFromDetalhe, chamadoFromResumo, interacaoFromApi, logAuditoriaFromApi, prioridadeToApi, statusToApi, tipoInteracaoToApi } from './mappers';
+import type {
+  AlterarStatus,
+  ChamadoDetalhe,
+  CriarChamado,
+  CriarInteracao,
+  Interacao as ApiInteracao,
+  PaginaChamados,
+  ResumoChamados,
+  RespostaChamado,
+} from './types';
+import type { Chamado, ChamadoStatus, Interacao, LogAuditoria, Prioridade } from '@/types/chamado';
 
 export interface FiltrosChamados {
   status?: ChamadoStatus;
-  produto?: string;
-  categoria?: string;
+  prioridade?: Prioridade;
+  agenteId?: number;
   busca?: string;
+  pageSize?: number;
 }
 
-function toQuery(params: Record<string, string | undefined>): string {
-  const entries = Object.entries(params).filter((entry): entry is [string, string] => Boolean(entry[1]));
-  return entries.length ? `?${new URLSearchParams(entries)}` : '';
+export interface PaginaDeChamados {
+  itens: Chamado[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPaginas: number;
 }
 
-/** GET /chamados — RF02, fila de atendimento. */
-export async function listar(filtros: FiltrosChamados = {}): Promise<Chamado[]> {
-  const data = await apiGet<Chamado[]>(`/chamados${toQuery(filtros)}`);
-  return data.map(mapChamado);
+export interface ChamadoComHistorico {
+  chamado: Chamado;
+  interacoes: Interacao[];
+  auditoria: LogAuditoria[];
 }
 
-/** GET /chamados/resumo — cards da ResumeBar (RF07/RF09). */
-export function resumo() {
-  return apiGet<{ total: number; abertos: number; estourados: number; aguardandoCliente: number }>(
-    '/chamados/resumo',
-  );
+export interface AgenteResumo {
+  id: number;
+  nome: string;
+  email: string;
 }
 
-/** POST /chamados — RF01, abertura de chamado. */
-export async function abrir(dados: { produto: string; categoria: string; descricao: string }): Promise<Chamado> {
-  const data = await apiPost<Chamado>('/chamados', dados);
-  return mapChamado(data);
+export async function listar(filtros: FiltrosChamados = {}, page = 1): Promise<PaginaDeChamados> {
+  const query = toQueryString({
+    status: filtros.status ? statusToApi(filtros.status) : undefined,
+    prioridade: filtros.prioridade ? prioridadeToApi(filtros.prioridade) : undefined,
+    agenteId: filtros.agenteId,
+    busca: filtros.busca,
+    page,
+    pageSize: filtros.pageSize,
+  });
+  const pagina = await request<PaginaChamados>(`/api/Chamados${query}`);
+  return { ...pagina, itens: pagina.itens.map(chamadoFromResumo) };
 }
 
-/** GET /chamados/:id — detalhe de um chamado específico. */
-export async function buscarPorId(chamadoId: string): Promise<Chamado> {
-  const data = await apiGet<Chamado>(`/chamados/${chamadoId}`);
-  return mapChamado(data);
+export function resumo(): Promise<ResumoChamados> {
+  return request<ResumoChamados>('/api/Chamados/resumo');
 }
 
-/** PATCH /chamados/:id/status — RF04. */
-export async function mudarStatus(chamadoId: string, status: ChamadoStatus): Promise<Chamado> {
-  const data = await apiPatch<Chamado>(`/chamados/${chamadoId}/status`, { status });
-  return mapChamado(data);
+export async function obter(id: number | string): Promise<ChamadoComHistorico> {
+  const dto = await request<ChamadoDetalhe>(`/api/Chamados/${id}`);
+  const chamadoId = String(dto.id);
+  return {
+    chamado: chamadoFromDetalhe(dto),
+    interacoes: dto.interacoes.map(interacaoFromApi),
+    auditoria: dto.logsAuditoria.map((log) => logAuditoriaFromApi(log, chamadoId)),
+  };
 }
 
-/** PATCH /chamados/:id/agente — RF03. */
-export async function atribuirAgente(chamadoId: string, agenteId: string): Promise<Chamado> {
-  const data = await apiPatch<Chamado>(`/chamados/${chamadoId}/agente`, { agenteId });
-  return mapChamado(data);
+export function criar(dto: { produto: string; categoria: string; descricao: string; prioridade: Prioridade }): Promise<RespostaChamado> {
+  const body: CriarChamado = {
+    produto: dto.produto,
+    categoria: dto.categoria,
+    descricao: dto.descricao,
+    prioridade: prioridadeToApi(dto.prioridade),
+  };
+  return request<RespostaChamado>('/api/Chamados', { method: 'POST', body });
 }
 
-/** GET /agentes — lista para o seletor de atribuição. */
-export function listarAgentes() {
-  return apiGet<Array<{ id: string; nome: string }>>('/agentes');
+export function alterarStatus(id: number | string, status: ChamadoStatus, comentario?: string): Promise<RespostaChamado> {
+  const body: AlterarStatus = { status: statusToApi(status), comentario: comentario ?? null };
+  return request<RespostaChamado>(`/api/Chamados/${id}/status`, { method: 'PATCH', body });
 }
 
-/** GET /chamados/:id/interacoes — histórico da conversa (RF05). */
-export async function listarInteracoes(chamadoId: string): Promise<Interacao[]> {
-  const data = await apiGet<Interacao[]>(`/chamados/${chamadoId}/interacoes`);
-  return data.map(mapInteracao);
+/** PATCH /api/Chamados/{id}/atribuir espera o id do agente cru no corpo (não um objeto). */
+export function atribuir(id: number | string, agenteId: number): Promise<RespostaChamado> {
+  return request<RespostaChamado>(`/api/Chamados/${id}/atribuir`, { method: 'PATCH', body: agenteId });
 }
 
-/** POST /chamados/:id/interacoes — resposta pública ou nota interna (RF05). */
-export async function adicionarInteracao(
-  chamadoId: string,
-  mensagem: string,
-  tipo: 'publica' | 'nota_interna',
-): Promise<Interacao> {
-  const data = await apiPost<Interacao>(`/chamados/${chamadoId}/interacoes`, { mensagem, tipo });
-  return mapInteracao(data);
+export function agentes(): Promise<AgenteResumo[]> {
+  return request<AgenteResumo[]>('/api/Chamados/agentes');
 }
 
-/** GET /chamados/opcoes — produtos e categorias disponíveis pro formulário de abertura. */
-export function listarOpcoes() {
-  return apiGet<{ produtos: string[]; categorias: string[] }>('/chamados/opcoes');
+export async function adicionarInteracao(id: number | string, mensagem: string, tipo: Interacao['tipo']): Promise<Interacao> {
+  const body: CriarInteracao = { mensagem, tipo: tipoInteracaoToApi(tipo), anexos: null };
+  const dto = await request<ApiInteracao>(`/api/Chamados/${id}/interacoes`, { method: 'POST', body });
+  return interacaoFromApi(dto);
 }
+
+// slaCategorias(): sem endpoint correspondente no backend ainda (só existe internamente, usado ao
+// criar um chamado). Fica pendente até o backend expor uma listagem das regras de SLA.

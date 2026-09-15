@@ -1,6 +1,9 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { login as apiLogin, me as apiMe } from '@/api/auth';
-import { getToken, setToken, clearToken } from '@/api/client';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { clearToken, getToken, setToken } from '@/api/client';
+import { me } from '@/api/auth';
+import { papelFromApi } from '@/api/mappers';
+import type { UsuarioLogado } from '@/api/types';
 import type { Papel } from '@/types/chamado';
 
 export interface AuthUser {
@@ -14,45 +17,79 @@ export interface AuthUser {
 
 interface AuthContextValue {
   user: AuthUser | null;
+  token: string | null;
   isAuthenticated: boolean;
+  /** true enquanto o /me da carga inicial (token já salvo em sessionStorage) ainda não respondeu. */
   loading: boolean;
-  login: (email: string, senha: string) => Promise<void>;
+  /** Sincroniza um token já salvo (por src/api/auth.ts login()) com o estado da aplicação, buscando o usuário via /me. */
+  login: (token: string) => Promise<void>;
   logout: () => void;
   hasRole: (...papeis: Papel[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-/**
- * RF10 — Autenticação real via portal Atos Capital.
- * No boot do app: se existe token guardado, busca o usuário em GET /auth/me.
- * Se o token for inválido/expirado, a API responde 401, o client.ts dispara
- * o evento "auth:unauthorized" e este provider desloga automaticamente.
- */
+function mapUsuarioLogado(dto: UsuarioLogado): AuthUser {
+  return {
+    id: String(dto.id),
+    nome: dto.nome,
+    email: dto.email,
+    grupoEmpresaId: String(dto.grupoEmpresaId),
+    grupoEmpresaNome: dto.grupoEmpresaNome,
+    papel: papelFromApi(dto.papel),
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [token, setTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Carga inicial: se já existe token na sessão, busca o usuário via /me antes de liberar as rotas.
   useEffect(() => {
-    const token = getToken();
-    if (!token) {
+    const tokenSalvo = getToken();
+    if (!tokenSalvo) {
       setLoading(false);
       return;
     }
-    apiMe()
-      .then(setUser)
+    setTokenState(tokenSalvo);
+    me()
+      .then((dto) => setUser(mapUsuarioLogado(dto)))
       .catch(() => {
         clearToken();
+        setTokenState(null);
         setUser(null);
       })
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    const handleUnauthorized = () => setUser(null);
-    window.addEventListener('auth:unauthorized', handleUnauthorized);
-    return () => window.removeEventListener('auth:unauthorized', handleUnauthorized);
+  const login = useCallback(async (novoToken: string) => {
+    setToken(novoToken);
+    setTokenState(novoToken);
+    const dto = await me();
+    setUser(mapUsuarioLogado(dto));
   }, []);
+
+  const logout = useCallback(() => {
+    clearToken();
+    setTokenState(null);
+    setUser(null);
+    navigate('/login', { replace: true });
+  }, [navigate]);
+
+  const value = useMemo<AuthContextValue>(
+    () => ({
+      user,
+      token,
+      isAuthenticated: user !== null,
+      loading,
+      login,
+      logout,
+      hasRole: (...papeis: Papel[]) => user !== null && papeis.includes(user.papel),
+    }),
+    [user, token, loading, login, logout],
+  );
 
   const login = async (email: string, senha: string) => {
     const { token, usuario } = await apiLogin(email, senha);

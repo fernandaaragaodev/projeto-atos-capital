@@ -29,6 +29,7 @@ import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useTranslation } from 'react-i18next';
 import { useThemeMode } from '@/theme/ThemeModeProvider';
+import { useAuth } from '@/auth/AuthContext';
 import { logos } from '@/theme/tokens';
 import { useApp } from './useApp';
 
@@ -61,6 +62,7 @@ export function MainLayout({
   const { mode, toggleMode } = useThemeMode();
   const theme = useTheme();
   const { collapsed, toggleCollapsed } = useApp();
+  const { logout } = useAuth();
   const width = collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH;
 
   const menuBackground =
@@ -161,6 +163,11 @@ export function MainLayout({
           <IconButton size="small">
             <SettingsIcon fontSize="small" />
           </IconButton>
+          <Tooltip title="Sair">
+            <IconButton size="small" onClick={logout}>
+              <LogoutIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
 
           <Stack direction="row" alignItems="center" spacing={1} sx={{ pl: 1 }}>
             <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: 14 }}>

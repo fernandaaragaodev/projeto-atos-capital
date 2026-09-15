@@ -15,5 +15,9 @@ public record RespostaChamadoDto(
     DateTime CriadoEm,
     int UsuarioId,
     int GrupoEmpresaId,
-    int? AgenteId
+    int? AgenteId,
+    int? SlaCategoriaId,
+    DateTime? AguardandoDesde,
+    DateTime? ResolvidoEm,
+    DateTime? FechadoEm
 );

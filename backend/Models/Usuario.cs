@@ -2,9 +2,9 @@ using backend.Enums;
 
 namespace backend.Models;
 
-public class Usuario
+
+public class Usuario : BaseEntity
 {
-    public int Id { get; set; }
     public string IdExterno { get; set; } = string.Empty;
     public string Nome { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;

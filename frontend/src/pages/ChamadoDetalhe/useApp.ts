@@ -71,7 +71,9 @@ const mockAuditoria: Record<string, LogAuditoria[]> = {
 
 /** RF02–RF05, RF11, RF13 — tela de detalhe do chamado. */
 export function useApp(chamadoId: string | undefined) {
-  const { user } = useAuth();
+  // RequireAuth garante que esta tela só renderiza com o usuário já carregado.
+  const { user: usuarioLogado } = useAuth();
+  const user = usuarioLogado!;
   const { chamados: todosChamados } = useChamadosApp();
   const [interacoesPorChamado, setInteracoesPorChamado] = useState(mockInteracoes);
   const [auditoriaPorChamado, setAuditoriaPorChamado] = useState(mockAuditoria);

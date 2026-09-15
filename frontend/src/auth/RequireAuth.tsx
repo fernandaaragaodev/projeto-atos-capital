@@ -1,15 +1,24 @@
 import type { ReactNode } from 'react';
+import { Box, CircularProgress } from '@mui/material';
+import { Navigate, useLocation } from 'react-router-dom';
+import { useAuth } from './AuthContext';
 
-interface RequireAuthProps {
-  children: ReactNode;
-}
+/** Bloqueia o acesso sem sessão válida, guardando a rota pretendida para retomar após o login. */
+export function RequireAuth({ children }: { children: ReactNode }) {
+  const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
 
-/**
- * TEMPORÁRIO: sem tela de login por enquanto, então libera acesso direto.
- * Quando a autenticação via SSO (token vindo do portal Atos Capital) for
- * implementada, este componente volta a checar isAuthenticated/loading
- * e redirecionar quem não tiver token válido.
- */
-export function RequireAuth({ children }: RequireAuthProps) {
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
   return <>{children}</>;
 }

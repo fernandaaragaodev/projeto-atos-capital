@@ -1,25 +1,55 @@
 using System.Text;
 using backend.Data;
+using backend.Data.Repositories;
 using backend.Enums;
+using backend.Events;
 using backend.Models;
 using backend.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 
+
+builder.Services.AddControllers().AddJsonOptions(options =>
+{
+    options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+});
+
 // DbContext (PostgreSQL)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString));
+builder.Services.AddRepositories();
+
+// CORS: origens permitidas configuráveis via appsettings (lista vazia por padrão = nada liberado)
+var origensPermitidas = builder.Configuration.GetSection("Cors:OrigensPermitidas").Get<string[]>() ?? [];
+const string PoliticaCorsFrontend = "PoliticaCorsFrontend";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(PoliticaCorsFrontend, policy =>
+    {
+        policy.WithOrigins(origensPermitidas)
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
 
 // Serviços da Aplicação
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<RelatorioService>();
+builder.Services.AddEventosWebhooks(builder.Configuration); // RF06: Channel + EventoService + WebhookDispatcher (Events/)
+builder.Services.AddAnexos(builder.Configuration);          // RF11: AnexosOptions + ArquivoService (uploads NÃO são static files)
+
+// RF07/RF09 — Monitor de SLA (BackgroundService) + options da seção "Sla"
+builder.Services.Configure<SlaOptions>(builder.Configuration.GetSection(SlaOptions.Secao));
+builder.Services.AddSingleton<SlaMonitorService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<SlaMonitorService>());
 
 // Configuração da Autenticação via JWT Bearer
 var jwtKey = builder.Configuration["Jwt:Key"]!;
@@ -83,6 +113,9 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// CORS precisa vir antes da autenticação/autorização
+app.UseCors(PoliticaCorsFrontend);
+
 // Ativa Autenticação e Autorização
 app.UseAuthentication();
 app.UseAuthorization();
@@ -97,45 +130,65 @@ using (var scope = app.Services.CreateScope())
     // Aplica as migrations criando o banco de dados e as tabelas caso não existam
     context.Database.Migrate();
 
-    // Garante a existência do grupo
-    var grupo = context.GruposEmpresas.FirstOrDefault(g => g.Nome == "Atos Capital");
+    var gruposEmpresas = scope.ServiceProvider.GetRequiredService<IBaseRepository<GrupoEmpresa>>();
+    var usuarios = scope.ServiceProvider.GetRequiredService<IBaseRepository<Usuario>>();
+    var slaCategorias = scope.ServiceProvider.GetRequiredService<IBaseRepository<SLACategoria>>();
+
+    // Garante a existência do grupo (empresa matriz Atos Capital)
+    var grupo = gruposEmpresas.ObterTodos().FirstOrDefault(g => g.Nome == "Atos Capital");
     if (grupo == null)
     {
-        grupo = new GrupoEmpresa 
-        { 
+        grupo = new GrupoEmpresa
+        {
             Nome = "Atos Capital",
             IdExterno = "GRP-ATOS-001",
             Tipo = TipoGrupoEnum.MATRIZ
         };
-        context.GruposEmpresas.Add(grupo);
-        context.SaveChanges();
+        gruposEmpresas.Add(grupo);
+        gruposEmpresas.SalvarAlteracoes();
     }
 
-    // Garante a criação dos usuários de teste caso não existam
-    if (!context.Usuarios.Any())
+    // Garante a existência de uma segunda empresa cliente, para testar isolamento de dados entre clientes
+    var grupoNortec = gruposEmpresas.ObterTodos().FirstOrDefault(g => g.Nome == "Cliente Nortec");
+    if (grupoNortec == null)
     {
-        context.Usuarios.AddRange(
-            new Usuario
-            {
-                Nome = "Admin Atos",
-                Email = "admin@atos.com",
-                SenhaHash = "123456",
-                IdExterno = "USR-ADM-001",
-                Papel = PapelEnum.ADMIN,
-                GrupoEmpresaId = grupo.Id
-            },
-            new Usuario
-            {
-                Nome = "Cliente Teste",
-                Email = "cliente@atos.com",
-                SenhaHash = "123456",
-                IdExterno = "USR-CLI-001",
-                Papel = PapelEnum.CLIENTE,
-                GrupoEmpresaId = grupo.Id
-            }
-        );
-        context.SaveChanges();
+        grupoNortec = new GrupoEmpresa
+        {
+            Nome = "Cliente Nortec",
+            IdExterno = "GRP-NORTEC-001",
+            Tipo = TipoGrupoEnum.MATRIZ
+        };
+        gruposEmpresas.Add(grupoNortec);
+        gruposEmpresas.SalvarAlteracoes();
     }
+
+    // Garante a criação de cada usuário de teste, checando por e-mail antes de inserir (idempotente)
+    void GarantirUsuario(string nome, string email, string idExterno, PapelEnum papel, int grupoEmpresaId)
+    {
+        if (!usuarios.ObterTodos().Any(u => u.Email == email))
+        {
+            usuarios.Add(new Usuario
+            {
+                Nome = nome,
+                Email = email,
+                SenhaHash = "123456",
+                IdExterno = idExterno,
+                Papel = papel,
+                GrupoEmpresaId = grupoEmpresaId
+            });
+        }
+    }
+
+    GarantirUsuario("Admin Atos", "admin@atos.com", "USR-ADM-001", PapelEnum.ADMIN, grupo.Id);
+    GarantirUsuario("Cliente Teste", "cliente@atos.com", "USR-CLI-001", PapelEnum.CLIENTE, grupo.Id);
+    GarantirUsuario("Agente Atos", "agente@atos.com", "USR-AGT-001", PapelEnum.AGENTE, grupo.Id);
+    GarantirUsuario("Supervisor Atos", "supervisor@atos.com", "USR-SUP-001", PapelEnum.SUPERVISOR, grupo.Id);
+    GarantirUsuario("Cliente Nortec", "cliente@nortec.com", "USR-CLI-002", PapelEnum.CLIENTE, grupoNortec.Id);
+
+    usuarios.SalvarAlteracoes();
+
+    // RF07 — Regras de SLA padrão (idempotente): Plataforma x Acesso/Erro/Dúvida x 4 prioridades
+    DataSeeder.SeedSlaCategorias(slaCategorias);
 }
 
 app.Run();

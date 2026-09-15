@@ -22,6 +22,40 @@ namespace backend.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("backend.Models.AlertaSla", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ChamadoId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ReconhecidoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int?>("ReconhecidoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Tipo")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReconhecidoEm");
+
+                    b.HasIndex("ReconhecidoPorId");
+
+                    b.HasIndex("ChamadoId", "Tipo");
+
+                    b.ToTable("AlertasSla");
+                });
+
             modelBuilder.Entity("backend.Models.Chamado", b =>
                 {
                     b.Property<int>("Id")
@@ -34,6 +68,15 @@ namespace backend.Migrations
                         .HasColumnType("integer");
 
                     b.Property<DateTime?>("AguardandoDesde")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("AlertaEstouroSlaEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("AlertaRespostaAtrasadaEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("AlertaRiscoSlaEm")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Categoria")
@@ -91,6 +134,8 @@ namespace backend.Migrations
                     b.HasIndex("SlaCategoriaId");
 
                     b.HasIndex("UsuarioId");
+
+                    b.HasIndex("Status", "PrazoResolucao");
 
                     b.ToTable("Chamados");
                 });
@@ -269,6 +314,24 @@ namespace backend.Migrations
                     b.ToTable("Usuarios");
                 });
 
+            modelBuilder.Entity("backend.Models.AlertaSla", b =>
+                {
+                    b.HasOne("backend.Models.Chamado", "Chamado")
+                        .WithMany("AlertasSla")
+                        .HasForeignKey("ChamadoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("backend.Models.Usuario", "ReconhecidoPor")
+                        .WithMany()
+                        .HasForeignKey("ReconhecidoPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Chamado");
+
+                    b.Navigation("ReconhecidoPor");
+                });
+
             modelBuilder.Entity("backend.Models.Chamado", b =>
                 {
                     b.HasOne("backend.Models.Usuario", "Agente")
@@ -363,6 +426,8 @@ namespace backend.Migrations
 
             modelBuilder.Entity("backend.Models.Chamado", b =>
                 {
+                    b.Navigation("AlertasSla");
+
                     b.Navigation("Interacoes");
 
                     b.Navigation("LogsAuditoria");

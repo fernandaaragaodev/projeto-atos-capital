@@ -35,10 +35,11 @@ function AppTabs() {
 
 /** Telas autenticadas do sistema, dentro do layout com menu lateral. */
 function AppShell() {
-  const { user, logout } = useAuth();
+  // RequireAuth só renderiza este componente com o usuário já carregado.
+  const { user } = useAuth();
 
   return (
-    <MainLayout userName={user?.nome} companyName={user?.grupoEmpresaNome} onLogout={logout}>
+    <MainLayout userName={user!.nome} companyName={user!.grupoEmpresaNome}>
       <AppTabs />
       <Routes>
         <Route path="/" element={<Navigate to="/chamados" replace />} />
@@ -55,16 +56,9 @@ function AppShell() {
 export default function App() {
   return (
     <AuthProvider>
-      <Routes>
-        <Route
-          path="/*"
-          element={
-            <RequireAuth>
-              <AppShell />
-            </RequireAuth>
-          }
-        />
-      </Routes>
+      <RequireAuth>
+        <AppShell />
+      </RequireAuth>
     </AuthProvider>
   );
 }

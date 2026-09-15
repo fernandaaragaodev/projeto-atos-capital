@@ -2,9 +2,8 @@ using backend.Enums;
 
 namespace backend.Models;
 
-public class GrupoEmpresa
+public class GrupoEmpresa : BaseEntity
 {
-    public int Id { get; set; }
     public string IdExterno { get; set; } = string.Empty;
     public string Nome { get; set; } = string.Empty;
     public TipoGrupoEnum Tipo { get; set; }
