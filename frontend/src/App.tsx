@@ -33,6 +33,7 @@ function AppTabs() {
   );
 }
 
+/** Telas autenticadas do sistema, dentro do layout com menu lateral. */
 function AppShell() {
   // RequireAuth só renderiza este componente com o usuário já carregado.
   const { user } = useAuth();

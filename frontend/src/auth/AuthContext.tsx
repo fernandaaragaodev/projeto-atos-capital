@@ -91,7 +91,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [user, token, loading, login, logout],
   );
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  const login = async (email: string, senha: string) => {
+    const { token, usuario } = await apiLogin(email, senha);
+    setToken(token);
+    setUser(usuario);
+  };
+
+  const logout = () => {
+    clearToken();
+    setUser(null);
+  };
+
+  const hasRole = (...papeis: Papel[]) => Boolean(user && papeis.includes(user.papel));
+
+  return (
+    <AuthContext.Provider value={{ user, isAuthenticated: Boolean(user), loading, login, logout, hasRole }}>
+      {children}
+    </AuthContext.Provider>
+  );
 }
 
 export function useAuth() {
