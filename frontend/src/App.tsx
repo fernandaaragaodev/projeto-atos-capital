@@ -3,8 +3,6 @@ import { Tabs, Tab, Box } from '@mui/material';
 import { MainLayout } from '@/layouts/MainLayout';
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
 import { RequireAuth } from '@/auth/RequireAuth';
-import { Login } from '@/pages/Login';
-import { EsqueciSenha } from '@/pages/EsqueciSenha';
 import { PaginasDisponiveis } from '@/pages/PaginasDisponiveis';
 import { TitulosAPagar } from '@/pages/TitulosAPagar';
 import { Chamados } from '@/pages/Chamados';
@@ -58,8 +56,6 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/esqueci-senha" element={<EsqueciSenha />} />
         <Route
           path="/*"
           element={
