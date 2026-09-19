@@ -7,16 +7,23 @@ import { Toaster } from 'sonner';
 
 import '@/i18n';
 import { ThemeModeProvider } from '@/theme/ThemeModeProvider';
+import { AuthProvider } from '@/auth/AuthContext';
 import App from './App';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ThemeModeProvider>
-      <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="pt-br">
+      <LocalizationProvider
+        dateAdapter={AdapterDayjs}
+        adapterLocale="pt-br"
+      >
         <BrowserRouter>
-          <App />
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+
+          <Toaster richColors position="top-right" />
         </BrowserRouter>
-        <Toaster richColors position="top-right" />
       </LocalizationProvider>
     </ThemeModeProvider>
   </React.StrictMode>,

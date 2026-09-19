@@ -24,7 +24,7 @@ const mockChamados: Chamado[] = [
     status: 'em_andamento',
     prioridade: 'alta',
     agenteId: 'agt-01',
-    agenteNome: 'Marcos Vinícius',
+    agenteNome: 'Luiz Cauã',
     slaPrazo: horasNaFrente(1),
     criadoEm: horasAtras(6),
     anexos: [],
@@ -76,7 +76,7 @@ const mockChamados: Chamado[] = [
     status: 'resolvido',
     prioridade: 'baixa',
     agenteId: 'agt-01',
-    agenteNome: 'Marcos Vinícius',
+    agenteNome: 'Luiz Cauã',
     slaPrazo: horasAtras(2),
     criadoEm: horasAtras(48),
     fechadoEm: horasAtras(4),
@@ -104,7 +104,7 @@ const mockChamados: Chamado[] = [
 ];
 
 export const AGENTES = [
-  { id: 'agt-01', nome: 'Marcos Vinícius' },
+  { id: 'agt-01', nome: 'Luiz Cauã' },
   { id: 'agt-02', nome: 'Camila Torres' },
   { id: 'agt-03', nome: 'Juliana Prado' },
 ];

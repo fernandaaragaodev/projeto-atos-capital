@@ -1,5 +1,6 @@
-import { Box, Stack, Typography } from '@mui/material';
+import { Box, Button, Stack, Typography } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import { useNavigate } from 'react-router-dom';
 import { Options } from '@/components/Options';
 import { ResumeBar } from '@/components/ResumeBar';
@@ -74,9 +75,10 @@ export function Chamados() {
 
   return (
     <Box>
-      <Typography variant="h1" sx={{ mb: 3 }}>
-        Chamados
-      </Typography>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+        <Typography variant="h1">Chamados</Typography>
+        <Button startIcon={<DashboardRoundedIcon />} onClick={() => navigate('/')} variant="text">Dashboard</Button>
+      </Stack>
 
       <ResumeBar
         items={[

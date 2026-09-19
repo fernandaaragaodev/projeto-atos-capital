@@ -1,40 +1,31 @@
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import {
   Avatar,
+  Badge,
   Box,
-  Drawer,
+  Breadcrumbs,
+  Button,
+  Divider,
   IconButton,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
+  Menu,
+  MenuItem,
   Stack,
   Tooltip,
   Typography,
   useTheme,
 } from '@mui/material';
-import MenuOpenIcon from '@mui/icons-material/MenuOpen';
-import MenuIcon from '@mui/icons-material/Menu';
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings';
-import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
-import RequestQuoteIcon from '@mui/icons-material/RequestQuote';
-import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
-import CreditCardIcon from '@mui/icons-material/CreditCard';
-import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import SettingsIcon from '@mui/icons-material/Settings';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
 import LogoutIcon from '@mui/icons-material/Logout';
-import { useTranslation } from 'react-i18next';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useThemeMode } from '@/theme/ThemeModeProvider';
-import { useAuth } from '@/auth/AuthContext';
 import { logos } from '@/theme/tokens';
-import { useApp } from './useApp';
-
-const DRAWER_WIDTH = 240;
-const DRAWER_WIDTH_COLLAPSED = 72;
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -43,138 +34,129 @@ interface MainLayoutProps {
   onLogout?: () => void;
 }
 
-const menuItems = [
-  { id: 'administrativo', icon: AdminPanelSettingsIcon, external: false },
-  { id: 'bankServices', icon: AccountBalanceIcon, external: false },
-  { id: 'budgetServices', icon: RequestQuoteIcon, external: false },
-  { id: 'taxServices', icon: ReceiptLongIcon, external: false },
-  { id: 'cardServices', icon: CreditCardIcon, external: true },
-] as const;
+const routeLabels: Record<string, string> = {
+  '/chamados': 'Chamados',
+  '/relatorios': 'Relatórios de SLA',
+  '/paginas-disponiveis': 'Páginas disponíveis',
+  '/titulos-a-pagar': 'Títulos a pagar',
+};
 
-/** Layout principal: menu lateral com degradê da marca + header superior. */
+function getPageLabel(pathname: string) {
+  const base = Object.keys(routeLabels).find((path) => pathname.startsWith(path));
+  return base ? routeLabels[base] : 'Dashboard';
+}
+
+/** Layout global sem menu lateral. O Dashboard é o centro da navegação. */
 export function MainLayout({
   children,
   userName = 'Usuário',
   companyName = 'Atos Capital',
   onLogout,
 }: MainLayoutProps) {
-  const { t } = useTranslation();
   const { mode, toggleMode } = useThemeMode();
   const theme = useTheme();
-  const { collapsed, toggleCollapsed } = useApp();
-  const { logout } = useAuth();
-  const width = collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH;
-
-  const menuBackground =
-    mode === 'light' ? 'linear-gradient(0deg, #7A2828, #893939)' : 'linear-gradient(0deg, #2a0e0e, #3a1818)';
+  const location = useLocation();
+  const navigate = useNavigate();
+  const [notificationAnchor, setNotificationAnchor] = useState<null | HTMLElement>(null);
+  const isDashboard = location.pathname === '/';
+  const pageLabel = getPageLabel(location.pathname);
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      <Drawer
-        variant="permanent"
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      <Stack
+        component="header"
+        direction="row"
+        alignItems="center"
+        justifyContent="space-between"
         sx={{
-          width,
-          flexShrink: 0,
-          transition: 'width 0.2s',
-          '& .MuiDrawer-paper': {
-            width,
-            boxSizing: 'border-box',
-            background: menuBackground,
-            color: '#ffffff',
-            border: 'none',
-            transition: 'width 0.2s',
-            overflowX: 'hidden',
-          },
+          px: { xs: 2, md: 3 },
+          py: 1.25,
+          minHeight: 64,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          position: 'sticky',
+          top: 0,
+          zIndex: theme.zIndex.appBar,
+          backdropFilter: 'blur(12px)',
         }}
       >
-        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, py: 2 }}>
-          {!collapsed && (
-            <Box
-              component="img"
-              src={logos.logo}
-              alt="Atos Capital"
-              sx={{ height: 24, filter: 'brightness(0) invert(1)' }}
-            />
-          )}
-          <IconButton size="small" onClick={toggleCollapsed} sx={{ color: '#fff' }}>
-            {collapsed ? <MenuIcon /> : <MenuOpenIcon />}
-          </IconButton>
-        </Stack>
+        <Button
+          onClick={() => navigate('/')}
+          sx={{ minWidth: 0, p: 0.5, borderRadius: 2, '&:hover': { bgcolor: 'action.hover' } }}
+          aria-label="Ir para o Dashboard"
+        >
+          <Box component="img" src={logos.logo} alt="Atos Capital" sx={{ height: 28, width: 112, objectFit: 'contain' }} />
+        </Button>
 
-        {!collapsed && (
-          <Typography
-            variant="caption"
-            sx={{ px: 2, pb: 1, textTransform: 'uppercase', fontWeight: 700, opacity: 0.7 }}
-          >
-            {t('menu.servicos')}
-          </Typography>
-        )}
-
-        <List sx={{ px: 1 }}>
-          {menuItems.map(({ id, icon: Icon, external }) => (
-            <Tooltip key={id} title={collapsed ? t(`menu.${id}`) ?? '' : ''} placement="right">
-              <ListItemButton
+        <Stack direction="row" alignItems="center" spacing={{ xs: 0.25, md: 0.75 }}>
+          {!isDashboard && (
+            <Tooltip title="Voltar para o Dashboard">
+              <Button
+                size="small"
+                startIcon={<DashboardRoundedIcon fontSize="small" />}
+                onClick={() => navigate('/')}
                 sx={{
-                  borderRadius: 1,
-                  color: '#fff',
-                  '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
+                  display: { xs: 'none', sm: 'inline-flex' },
+                  mr: 0.5,
+                  fontWeight: 600,
+                  borderRadius: 2,
                 }}
               >
-                <ListItemIcon sx={{ color: '#fff', minWidth: 36 }}>
-                  <Icon fontSize="small" />
-                </ListItemIcon>
-                {!collapsed && (
-                  <>
-                    <ListItemText primary={t(`menu.${id}`)} primaryTypographyProps={{ fontSize: 14 }} />
-                    {external && <OpenInNewIcon sx={{ fontSize: 14, opacity: 0.8 }} />}
-                  </>
-                )}
-              </ListItemButton>
+                Dashboard
+              </Button>
             </Tooltip>
-          ))}
-        </List>
-      </Drawer>
+          )}
 
-      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="flex-end"
-          spacing={1}
-          sx={{
-            px: 3,
-            py: 1.5,
-            borderBottom: '1px solid',
-            borderColor: 'divider',
-            bgcolor: 'background.paper',
-          }}
-        >
-          <Tooltip title={mode === 'light' ? 'Dark mode' : 'Light mode'}>
+          <Tooltip title={mode === 'light' ? 'Ativar modo escuro' : 'Ativar modo claro'}>
             <IconButton size="small" onClick={toggleMode}>
               {mode === 'light' ? <DarkModeIcon fontSize="small" /> : <LightModeIcon fontSize="small" />}
             </IconButton>
           </Tooltip>
-          <IconButton size="small">
-            <HelpOutlineIcon fontSize="small" />
-          </IconButton>
-          <IconButton size="small">
-            <NotificationsNoneIcon fontSize="small" />
-          </IconButton>
-          <IconButton size="small">
-            <SettingsIcon fontSize="small" />
-          </IconButton>
-          <Tooltip title="Sair">
-            <IconButton size="small" onClick={logout}>
-              <LogoutIcon fontSize="small" />
+          <Tooltip title="Ajuda">
+            <IconButton size="small">
+              <HelpOutlineIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Notificações">
+            <IconButton size="small" onClick={(event) => setNotificationAnchor(event.currentTarget)}>
+              <Badge color="primary" variant="dot">
+                <NotificationsNoneIcon fontSize="small" />
+              </Badge>
             </IconButton>
           </Tooltip>
 
-          <Stack direction="row" alignItems="center" spacing={1} sx={{ pl: 1 }}>
-            <Avatar sx={{ width: 32, height: 32, bgcolor: 'primary.main', fontSize: 14 }}>
-              {userName.charAt(0)}
+          <Menu
+            anchorEl={notificationAnchor}
+            open={Boolean(notificationAnchor)}
+            onClose={() => setNotificationAnchor(null)}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <MenuItem disabled sx={{ fontWeight: 700 }}>
+              Notificações
+            </MenuItem>
+            <Divider />
+            <MenuItem onClick={() => { setNotificationAnchor(null); navigate('/chamados/2'); }}>
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>SLA estourado</Typography>
+                <Typography variant="caption" color="text.secondary">CH-2026-0092 requer atenção.</Typography>
+              </Box>
+            </MenuItem>
+            <MenuItem onClick={() => { setNotificationAnchor(null); navigate('/chamados'); }}>
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>3 chamados ativos</Typography>
+                <Typography variant="caption" color="text.secondary">Acompanhe a fila de atendimento.</Typography>
+              </Box>
+            </MenuItem>
+          </Menu>
+
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ pl: { xs: 0.5, md: 1 } }}>
+            <Avatar sx={{ width: 34, height: 34, bgcolor: 'primary.main', fontSize: 14 }}>
+              {userName.charAt(0).toUpperCase()}
             </Avatar>
-            <Box>
-              <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1.2 }}>
+            <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
                 {userName}
               </Typography>
               <Typography variant="caption" color="text.secondary">
@@ -185,15 +167,37 @@ export function MainLayout({
 
           {onLogout && (
             <Tooltip title="Sair">
-              <IconButton size="small" onClick={onLogout} sx={{ ml: 1 }}>
+              <IconButton size="small" onClick={onLogout} sx={{ ml: 0.5 }}>
                 <LogoutIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           )}
         </Stack>
+      </Stack>
 
-        <Box sx={{ flexGrow: 1, p: 3, bgcolor: theme.palette.background.default }}>{children}</Box>
+      <Box sx={{ px: { xs: 2, md: 3 }, pt: 1.5, bgcolor: 'background.default' }}>
+        <Breadcrumbs
+          separator={<ChevronRightIcon sx={{ fontSize: 16 }} />}
+          aria-label="navegação estrutural"
+          sx={{ '& .MuiBreadcrumbs-ol': { alignItems: 'center' } }}
+        >
+          <Button
+            size="small"
+            startIcon={<HomeRoundedIcon sx={{ fontSize: 16 }} />}
+            onClick={() => navigate('/')}
+            sx={{ minWidth: 0, px: 0.5, fontSize: 12, color: isDashboard ? 'text.primary' : 'text.secondary' }}
+          >
+            Dashboard
+          </Button>
+          {!isDashboard && (
+            <Typography variant="caption" color="text.primary" sx={{ fontWeight: 600 }}>
+              {pageLabel}
+            </Typography>
+          )}
+        </Breadcrumbs>
       </Box>
+
+      <Box sx={{ p: { xs: 2, md: 3 }, pt: { xs: 1.5, md: 2 } }}>{children}</Box>
     </Box>
   );
 }

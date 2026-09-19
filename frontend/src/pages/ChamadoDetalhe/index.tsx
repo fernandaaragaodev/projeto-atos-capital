@@ -39,8 +39,8 @@ export function ChamadoDetalhe() {
     return (
       <Box>
         <Typography>Chamado não encontrado.</Typography>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/chamados')} sx={{ mt: 2 }}>
-          Voltar para a fila
+        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/')} sx={{ mt: 2 }}>
+          Voltar para o Dashboard
         </Button>
       </Box>
     );
@@ -50,8 +50,8 @@ export function ChamadoDetalhe() {
 
   return (
     <Box>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/chamados')} sx={{ mb: 2 }}>
-        Voltar para a fila
+      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/')} sx={{ mb: 2 }}>
+        Voltar para o Dashboard
       </Button>
 
       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" spacing={2}>

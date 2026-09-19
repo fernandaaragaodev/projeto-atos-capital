@@ -1,11 +1,14 @@
 import { Box, Button, Grid, MenuItem, Paper, Stack, TextField, Typography } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
 import FileDownloadIcon from '@mui/icons-material/FileDownload';
+import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import { ResumeBar } from '@/components/ResumeBar';
 import { RoleGuard } from '@/auth/RoleGuard';
 import { useApp } from './useApp';
 
 /** RF08 — Relatórios e painel de chamados mais recorrentes. Acesso restrito (RF12). */
 function RelatoriosContent() {
+  const navigate = useNavigate();
   const { filtros, setFiltros, produtos, gruposEmpresa, categorias, porCategoria, resumoSla, handleExport } = useApp();
 
   const maiorQuantidade = Math.max(1, ...porCategoria.map((item) => item.quantidade));
@@ -14,9 +17,12 @@ function RelatoriosContent() {
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h1">Relatórios de SLA</Typography>
-        <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={handleExport}>
+        <Stack direction="row" spacing={1}>
+          <Button startIcon={<DashboardRoundedIcon />} onClick={() => navigate('/')} variant="text">Dashboard</Button>
+          <Button variant="outlined" startIcon={<FileDownloadIcon />} onClick={handleExport}>
           Exportar
         </Button>
+        </Stack>
       </Stack>
 
       <ResumeBar
