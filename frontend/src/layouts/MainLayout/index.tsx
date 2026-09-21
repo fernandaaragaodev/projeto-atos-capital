@@ -37,8 +37,6 @@ interface MainLayoutProps {
 const routeLabels: Record<string, string> = {
   '/chamados': 'Chamados',
   '/relatorios': 'Relatórios de SLA',
-  '/paginas-disponiveis': 'Páginas disponíveis',
-  '/titulos-a-pagar': 'Títulos a pagar',
 };
 
 function getPageLabel(pathname: string) {
@@ -46,7 +44,6 @@ function getPageLabel(pathname: string) {
   return base ? routeLabels[base] : 'Dashboard';
 }
 
-/** Layout global sem menu lateral. O Dashboard é o centro da navegação. */
 export function MainLayout({
   children,
   userName = 'Usuário',

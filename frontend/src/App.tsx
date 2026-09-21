@@ -9,8 +9,6 @@ import { Dashboard } from '@/pages/Dashboard';
 import { Chamados } from '@/pages/Chamados';
 import { ChamadoDetalhe } from '@/pages/ChamadoDetalhe';
 import { Relatorios } from '@/pages/Relatorios';
-import { PaginasDisponiveis } from '@/pages/PaginasDisponiveis';
-import { TitulosAPagar } from '@/pages/TitulosAPagar';
 
 /**
  * Telas principais do sistema.
@@ -41,16 +39,6 @@ function AppShell() {
         <Route
           path="/relatorios"
           element={<Relatorios />}
-        />
-
-        <Route
-          path="/paginas-disponiveis"
-          element={<PaginasDisponiveis />}
-        />
-
-        <Route
-          path="/titulos-a-pagar"
-          element={<TitulosAPagar />}
         />
 
         <Route
