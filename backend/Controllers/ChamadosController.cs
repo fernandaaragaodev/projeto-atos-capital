@@ -502,6 +502,9 @@ public class ChamadosController : ControllerBase
         if (novoStatus == statusAnterior)
             return Conflict($"O chamado já está no status {statusAnterior}.");
 
+        if (statusAnterior == StatusEnum.RESOLVIDO && novoStatus != StatusEnum.FECHADO)
+            return Conflict("Chamado RESOLVIDO está travado: só pode ser fechado, não reaberto.");
+
         if (!Chamado.TransicaoPermitida(statusAnterior, novoStatus))
             return Conflict($"Transição de {statusAnterior} para {novoStatus} não é permitida.");
 
@@ -598,8 +601,8 @@ public class ChamadosController : ControllerBase
         var chamado = await _chamados.ObterAsync(id);
         if (chamado == null) return NotFound("Chamado não encontrado.");
 
-        if (chamado.Status == StatusEnum.FECHADO)
-            return Conflict("Chamado FECHADO é terminal e não pode ser atribuído.");
+        if (chamado.EstaTravado)
+            return Conflict($"Chamado {chamado.Status} está travado e não pode ser atribuído.");
 
         // Agente só assume chamado sem agente ou que já é dele
         if (!AgentePodeAtuar(usuario, chamado.AgenteId))
@@ -722,8 +725,8 @@ public class ChamadosController : ControllerBase
         if (!AgentePodeAtuar(usuario, chamado.AgenteId))
             return Forbid();
 
-        if (chamado.Status == StatusEnum.FECHADO)
-            return Conflict("Chamado FECHADO é terminal e não aceita novas interações.");
+        if (chamado.EstaTravado)
+            return Conflict($"Chamado {chamado.Status} está travado e não aceita novas interações.");
 
         var agora = DateTime.UtcNow;
 

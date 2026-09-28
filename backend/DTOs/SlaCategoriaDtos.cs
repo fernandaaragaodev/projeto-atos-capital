@@ -20,3 +20,23 @@ public record SlaProdutoDto(
     string Produto,
     IReadOnlyList<SlaCategoriaItemDto> Categorias
 );
+
+/// <summary>Regra de SLA como cadastrada (uma linha por Produto x Categoria x Prioridade), para as telas de manutenção.</summary>
+public record SlaCategoriaRegraDto(
+    int Id,
+    string Produto,
+    string Categoria,
+    PrioridadeEnum Prioridade,
+    int TempoRespostaHoras,
+    int TempoResolucaoHoras,
+    int ChamadosVinculados
+);
+
+/// <summary>Corpo do POST e do PUT de /api/SlaCategorias. Tempos em horas.</summary>
+public record SalvarSlaCategoriaDto(
+    string Produto,
+    string Categoria,
+    PrioridadeEnum Prioridade,
+    int TempoRespostaHoras,
+    int TempoResolucaoHoras
+);

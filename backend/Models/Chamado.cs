@@ -71,17 +71,13 @@ public class Chamado : BaseEntity
         {
             FechadoEm = agora;
         }
-        else if (novoStatus == StatusEnum.EM_ANDAMENTO && Status == StatusEnum.RESOLVIDO)
-        {
-            // Reabertura: o chamado volta a contar como ativo (o agente volta a ficar "ocupado")
-            ResolvidoEm = null;
-        }
 
         Status = novoStatus;
     }
 
     /// <summary>
-    /// Máquina de estados do chamado (RF04). FECHADO é terminal.
+    /// Máquina de estados do chamado (RF04). FECHADO é terminal e RESOLVIDO só avança para FECHADO:
+    /// depois de resolvido o chamado fica travado e não pode ser reaberto.
     /// </summary>
     public static bool TransicaoPermitida(StatusEnum de, StatusEnum para) => (de, para) switch
     {
@@ -93,13 +89,18 @@ public class Chamado : BaseEntity
         (StatusEnum.AGUARDANDO_CLIENTE, StatusEnum.EM_ANDAMENTO) => true,
         (StatusEnum.AGUARDANDO_CLIENTE, StatusEnum.RESOLVIDO) => true,
         (StatusEnum.RESOLVIDO, StatusEnum.FECHADO) => true,
-        (StatusEnum.RESOLVIDO, StatusEnum.EM_ANDAMENTO) => true, // reabrir
         _ => false
     };
 
     public bool PodeTransicionarPara(StatusEnum novoStatus) => TransicaoPermitida(Status, novoStatus);
 
     public static bool EhStatusFinal(StatusEnum status) => status == StatusEnum.RESOLVIDO || status == StatusEnum.FECHADO;
+
+    /// <summary>
+    /// Chamado RESOLVIDO ou FECHADO não aceita alterações (interações, anexos, atribuição de agente).
+    /// A única mudança permitida é o fechamento de um chamado RESOLVIDO.
+    /// </summary>
+    public bool EstaTravado => EhStatusFinal(Status);
 
     public void AlterarPrioridade(PrioridadeEnum novaPrioridade)
     {
