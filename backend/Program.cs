@@ -19,7 +19,20 @@ builder.Services.AddControllers().AddJsonOptions(options =>
 {
     options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
 });
+// CORS: libera o front (endereços vêm do appsettings)
+var origensPermitidas = builder.Configuration
+    .GetSection("Cors:OrigensPermitidas")
+    .Get<string[]>() ?? Array.Empty<string>();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("PoliticaPadrao", policy =>
+    {
+        policy.WithOrigins(origensPermitidas)
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
 // DbContext (PostgreSQL)
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -97,6 +110,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseCors("PoliticaPadrao");
 
 // Ativa Autenticação e Autorização
 app.UseAuthentication();
