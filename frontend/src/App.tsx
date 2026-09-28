@@ -8,11 +8,13 @@ import { TitulosAPagar } from '@/pages/TitulosAPagar';
 import { Chamados } from '@/pages/Chamados';
 import { ChamadoDetalhe } from '@/pages/ChamadoDetalhe';
 import { Relatorios } from '@/pages/Relatorios';
+import { SlaCategorias } from '@/pages/SlaCategorias';
 import { Sso } from '@/pages/Sso';
 
 const routes = [
   { path: '/chamados', label: 'Chamados' },
   { path: '/relatorios', label: 'Relatórios de SLA' },
+  { path: '/sla-categorias', label: 'Categorias de SLA' },
   { path: '/paginas-disponiveis', label: 'Páginas Disponíveis' },
   { path: '/titulos-a-pagar', label: 'Títulos a Pagar' },
 ];
@@ -47,6 +49,7 @@ function AppShell() {
         <Route path="/chamados" element={<Chamados />} />
         <Route path="/chamados/:id" element={<ChamadoDetalhe />} />
         <Route path="/relatorios" element={<Relatorios />} />
+        <Route path="/sla-categorias" element={<SlaCategorias />} />
         <Route path="/paginas-disponiveis" element={<PaginasDisponiveis />} />
         <Route path="/titulos-a-pagar" element={<TitulosAPagar />} />
       </Routes>

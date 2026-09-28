@@ -49,7 +49,7 @@ export interface Interacao {
   criadoEm: string;
 }
 
-/** RF13 — trilha de auditoria das alterações do chamado. */
+/** RF13 — histórico das alterações do chamado (LogAuditoria na API). */
 export interface LogAuditoria {
   id: string;
   chamadoId: string;
@@ -93,3 +93,15 @@ export const prioridadeToVariant: Record<Prioridade, StatusVariant> = {
 };
 
 export const STATUS_ABERTOS: ChamadoStatus[] = ['aberto', 'em_andamento', 'aguardando_cliente'];
+
+/** Depois de resolvido o chamado fica travado: não aceita interações, anexos nem troca de agente. */
+export const STATUS_TRAVADOS: ChamadoStatus[] = ['resolvido', 'fechado'];
+
+/** Espelha Chamado.TransicaoPermitida do backend (RF04). Resolvido só pode ser fechado; fechado é terminal. */
+export const TRANSICOES_PERMITIDAS: Record<ChamadoStatus, ChamadoStatus[]> = {
+  aberto: ['em_andamento', 'aguardando_cliente', 'resolvido'],
+  em_andamento: ['aguardando_cliente', 'resolvido'],
+  aguardando_cliente: ['em_andamento', 'resolvido'],
+  resolvido: ['fechado'],
+  fechado: [],
+};

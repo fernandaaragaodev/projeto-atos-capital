@@ -13,10 +13,12 @@ import {
   TablePagination,
   TableRow,
   TableSortLabel,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { useState, type MouseEvent } from 'react';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
+import type { SvgIconComponent } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { useApp } from './useApp';
 
@@ -30,6 +32,9 @@ export interface TableGridColumn<T> {
 export interface RowAction<T> {
   label: string;
   onClick: (row: T) => void;
+  /** Com ícone, a ação aparece direto na linha (botão com tooltip); sem ícone, fica no menu "⋮". */
+  icon?: SvgIconComponent;
+  color?: 'primary' | 'success' | 'warning' | 'error' | 'info';
 }
 
 interface TableGridProps<T extends object> {
@@ -76,6 +81,8 @@ export function TableGrid<T extends object>({
   };
 
   const allSelected = paginatedRows.length > 0 && selected.length === paginatedRows.length;
+  const inlineActions = actions?.filter((action) => action.icon) ?? [];
+  const menuActions = actions?.filter((action) => !action.icon) ?? [];
 
   return (
     <Box>
@@ -135,10 +142,19 @@ export function TableGrid<T extends object>({
                     </TableCell>
                   ))}
                   {actions && actions.length > 0 && (
-                    <TableCell align="right">
-                      <IconButton size="small" onClick={(e) => openActionsMenu(e, row)}>
-                        <MoreVertIcon fontSize="small" />
-                      </IconButton>
+                    <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                      {inlineActions.map(({ label, icon: Icon, color = 'primary', onClick }) => (
+                        <Tooltip key={label} title={label}>
+                          <IconButton size="small" color={color} aria-label={label} onClick={() => onClick(row)}>
+                            {Icon && <Icon fontSize="small" />}
+                          </IconButton>
+                        </Tooltip>
+                      ))}
+                      {menuActions.length > 0 && (
+                        <IconButton size="small" onClick={(e) => openActionsMenu(e, row)}>
+                          <MoreVertIcon fontSize="small" />
+                        </IconButton>
+                      )}
                     </TableCell>
                   )}
                 </TableRow>
@@ -159,7 +175,7 @@ export function TableGrid<T extends object>({
       />
 
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={closeActionsMenu}>
-        {actions?.map((action) => (
+        {menuActions.map((action) => (
           <MenuItem
             key={action.label}
             onClick={() => {

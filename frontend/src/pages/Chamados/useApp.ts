@@ -5,6 +5,7 @@ import { STATUS_ABERTOS, type Chamado } from '@/types/chamado';
 import type { NovoChamadoValues } from './components/NovoChamadoModal/useApp';
 import { listar, resumo as buscarResumo, criar } from '@/api/chamados';
 import { ApiError } from '@/api/client';
+import { calcularSituacaoSla } from './slaUtils';
 
 // TODO: sem endpoint de agentes com o shape { id: string, nome: string } usado pela atribuição
 // (ainda local/não persistida) em ChamadoDetalhe — troca pendente para consumir GET /api/Chamados/agentes.
@@ -23,16 +24,36 @@ interface Resumo {
 
 const RESUMO_VAZIO: Resumo = { total: 0, abertos: 0, estourados: 0, aguardandoCliente: 0 };
 
+/** Filtros da fila: o padrão da tela e os atalhos dos cards do topo (mesmo critério dos contadores). */
+const FILTROS = {
+  'status-abertos': {
+    label: 'Status: em aberto',
+    aplicar: (c: Chamado) => STATUS_ABERTOS.includes(c.status),
+  },
+  'status-aberto': {
+    label: 'Status: aberto',
+    aplicar: (c: Chamado) => c.status === 'aberto',
+  },
+  'status-aguardando-cliente': {
+    label: 'Status: aguardando cliente',
+    aplicar: (c: Chamado) => c.status === 'aguardando_cliente',
+  },
+  'sla-estourado': {
+    label: 'SLA estourado',
+    aplicar: (c: Chamado) => c.slaEstourado ?? calcularSituacaoSla(c) === 'estourado',
+  },
+} satisfies Record<string, { label: string; aplicar: (c: Chamado) => boolean }>;
+
+export type FiltroId = keyof typeof FILTROS;
+
 export function useApp() {
   const [chamados, setChamados] = useState<Chamado[]>([]);
   const [resumo, setResumo] = useState<Resumo>(RESUMO_VAZIO);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([
-    { id: 'status-abertos', label: 'Status: em aberto' },
+    { id: 'status-abertos', label: FILTROS['status-abertos'].label },
   ]);
   const [modalOpen, setModalOpen] = useState(false);
-
-  const somenteAbertos = activeFilters.some((f) => f.id === 'status-abertos');
 
   const carregarChamados = useCallback(async () => {
     try {
@@ -64,9 +85,10 @@ export function useApp() {
 
   const filteredChamados = useMemo(() => {
     let lista = chamados;
-    if (somenteAbertos) {
-      lista = lista.filter((c) => STATUS_ABERTOS.includes(c.status));
-    }
+    activeFilters.forEach((filtro) => {
+      const definicao = FILTROS[filtro.id as FiltroId];
+      if (definicao) lista = lista.filter(definicao.aplicar);
+    });
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       lista = lista.filter(
@@ -78,9 +100,15 @@ export function useApp() {
       );
     }
     return lista;
-  }, [chamados, searchTerm, somenteAbertos]);
+  }, [chamados, searchTerm, activeFilters]);
 
   const removeFilter = (id: string) => setActiveFilters((prev) => prev.filter((f) => f.id !== id));
+  const isFilterActive = (id: FiltroId) => activeFilters.length === 1 && activeFilters[0].id === id;
+  const semFiltros = activeFilters.length === 0;
+  /** Clique nos cards do topo: aplica só aquele filtro; clicar de novo no card ativo limpa. */
+  const applyQuickFilter = (id: FiltroId) =>
+    setActiveFilters(isFilterActive(id) ? [] : [{ id, label: FILTROS[id].label }]);
+  const clearFilters = () => setActiveFilters([]);
   const openNewModal = () => setModalOpen(true);
   const closeModal = () => setModalOpen(false);
 
@@ -114,6 +142,10 @@ export function useApp() {
     setSearchTerm,
     activeFilters,
     removeFilter,
+    isFilterActive,
+    semFiltros,
+    applyQuickFilter,
+    clearFilters,
     modalOpen,
     openNewModal,
     closeModal,
