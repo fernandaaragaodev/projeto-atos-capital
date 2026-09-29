@@ -232,6 +232,30 @@ export interface RespostaChamado {
 }
 
 // =====================================================================
+// Regras de SLA (backend/DTOs/SlaCategoriaDtos.cs)
+// =====================================================================
+
+/** GET /api/SlaCategorias/regras e /api/SlaCategorias/{id}. Tempos em horas. */
+export interface SlaCategoriaRegra {
+  id: number;
+  produto: string;
+  categoria: string;
+  prioridade: PrioridadeEnum;
+  tempoRespostaHoras: number;
+  tempoResolucaoHoras: number;
+  chamadosVinculados: number;
+}
+
+/** Corpo do POST e do PUT de /api/SlaCategorias. */
+export interface SalvarSlaCategoria {
+  produto: string;
+  categoria: string;
+  prioridade: PrioridadeEnum;
+  tempoRespostaHoras: number;
+  tempoResolucaoHoras: number;
+}
+
+// =====================================================================
 // Relatórios (backend/DTOs/RelatorioDtos.cs)
 // =====================================================================
 

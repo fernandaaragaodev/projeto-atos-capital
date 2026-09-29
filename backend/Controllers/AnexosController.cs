@@ -60,6 +60,8 @@ public class AnexosController : ControllerBase
         var chamado = await _chamados.ObterTodos().AsNoTracking().FirstOrDefaultAsync(c => c.Id == id, ct);
         if (chamado is null) return NotFound("Chamado não encontrado.");
         if (!PodeAcessar(usuario.Value, chamado)) return Forbid();
+        if (chamado.EstaTravado)
+            return Conflict($"Chamado {chamado.Status} está travado e não aceita novos anexos.");
 
         var arquivos = (form.Arquivos ?? []).Where(a => a is { Length: > 0 }).ToList();
         if (arquivos.Count == 0) return BadRequest("Envie ao menos um arquivo no campo 'arquivos'.");

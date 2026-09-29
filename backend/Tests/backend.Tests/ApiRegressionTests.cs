@@ -254,6 +254,204 @@ public sealed class ApiRegressionTests : IAsyncLifetime
         Assert.All(categorias, c => Assert.Equal(4, c.GetProperty("prioridades").GetArrayLength()));
     }
 
+    [Fact]
+    public async Task SlaCategoriasCrudCriaLeEditaEExclui()
+    {
+        await Login("admin");
+
+        var criacao = await _http.PostAsJsonAsync("/api/SlaCategorias",
+            new SalvarSlaCategoriaDto("  Portal  ", " Integração ", PrioridadeEnum.ALTA, 2, 8));
+        await Exigir(criacao, HttpStatusCode.Created);
+        var criada = await criacao.Content.ReadFromJsonAsync<JsonElement>();
+        var id = criada.GetProperty("id").GetInt32();
+        Assert.Equal("Portal", criada.GetProperty("produto").GetString());
+        Assert.Equal("Integração", criada.GetProperty("categoria").GetString());
+        Assert.Equal((int)PrioridadeEnum.ALTA, criada.GetProperty("prioridade").GetInt32());
+        Assert.Equal(0, criada.GetProperty("chamadosVinculados").GetInt32());
+        Assert.EndsWith($"/api/SlaCategorias/{id}", criacao.Headers.Location!.ToString());
+
+        var lida = await _http.GetFromJsonAsync<JsonElement>($"/api/SlaCategorias/{id}");
+        Assert.Equal(2, lida.GetProperty("tempoRespostaHoras").GetInt32());
+        Assert.Equal(8, lida.GetProperty("tempoResolucaoHoras").GetInt32());
+
+        var regras = await _http.GetFromJsonAsync<JsonElement>("/api/SlaCategorias/regras");
+        Assert.Equal(13, regras.GetArrayLength()); // 12 do seed + a criada
+        Assert.Contains(regras.EnumerateArray(), r => r.GetProperty("id").GetInt32() == id);
+
+        var edicao = await _http.PutAsJsonAsync($"/api/SlaCategorias/{id}",
+            new SalvarSlaCategoriaDto("Portal", "Integração", PrioridadeEnum.CRITICA, 1, 4));
+        await Exigir(edicao, HttpStatusCode.OK);
+        var editada = await edicao.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal((int)PrioridadeEnum.CRITICA, editada.GetProperty("prioridade").GetInt32());
+        Assert.Equal(4, editada.GetProperty("tempoResolucaoHoras").GetInt32());
+
+        // A regra nova passa a valer na listagem agrupada usada pelo formulário de novo chamado
+        var produtos = await _http.GetFromJsonAsync<JsonElement>("/api/SlaCategorias");
+        Assert.Contains(produtos.EnumerateArray(), p => p.GetProperty("produto").GetString() == "Portal");
+
+        await Exigir(await _http.DeleteAsync($"/api/SlaCategorias/{id}"), HttpStatusCode.NoContent);
+        await Exigir(await _http.GetAsync($"/api/SlaCategorias/{id}"), HttpStatusCode.NotFound);
+        await Exigir(await _http.DeleteAsync($"/api/SlaCategorias/{id}"), HttpStatusCode.NotFound);
+
+        using var scope = _app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Equal(12, await db.SLACategorias.CountAsync());
+    }
+
+    [Fact]
+    public async Task SlaCategoriasEscritaExigePapelDeGestao()
+    {
+        var corpo = new SalvarSlaCategoriaDto("Portal", "Integração", PrioridadeEnum.ALTA, 2, 8);
+        int idExistente;
+        using (var scope = _app.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            idExistente = await db.SLACategorias.Select(s => s.Id).FirstAsync();
+        }
+
+        await Exigir(await _http.GetAsync("/api/SlaCategorias/regras"), HttpStatusCode.Unauthorized);
+        await Exigir(await _http.PostAsJsonAsync("/api/SlaCategorias", corpo), HttpStatusCode.Unauthorized);
+
+        foreach (var usuario in new[] { "cliente", "agente" })
+        {
+            await Login(usuario);
+            await Exigir(await _http.GetAsync("/api/SlaCategorias/regras"), HttpStatusCode.Forbidden);
+            await Exigir(await _http.GetAsync($"/api/SlaCategorias/{idExistente}"), HttpStatusCode.Forbidden);
+            await Exigir(await _http.PostAsJsonAsync("/api/SlaCategorias", corpo), HttpStatusCode.Forbidden);
+            await Exigir(await _http.PutAsJsonAsync($"/api/SlaCategorias/{idExistente}", corpo), HttpStatusCode.Forbidden);
+            await Exigir(await _http.DeleteAsync($"/api/SlaCategorias/{idExistente}"), HttpStatusCode.Forbidden);
+            // A listagem agrupada continua aberta a qualquer usuário autenticado (formulário de novo chamado)
+            await Exigir(await _http.GetAsync("/api/SlaCategorias"), HttpStatusCode.OK);
+        }
+
+        using var verificacao = _app.Services.CreateScope();
+        var context = verificacao.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Equal(12, await context.SLACategorias.CountAsync());
+    }
+
+    [Fact]
+    public async Task SlaCategoriasValidaDadosDuplicidadeEVinculoComChamados()
+    {
+        var idChamado = await CriarChamado(); // Plataforma / Erro / MEDIA
+        int idRegraEmUso, idRegraLivre;
+        using (var scope = _app.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            idRegraEmUso = (await db.Chamados.AsNoTracking().SingleAsync(c => c.Id == idChamado)).SlaCategoriaId!.Value;
+            idRegraLivre = await db.SLACategorias
+                .Where(s => s.Categoria == "Acesso" && s.Prioridade == PrioridadeEnum.BAIXA).Select(s => s.Id).SingleAsync();
+        }
+
+        await Login("admin");
+
+        SalvarSlaCategoriaDto[] invalidos =
+        [
+            new("", "Erro", PrioridadeEnum.MEDIA, 1, 2),
+            new("Plataforma", "   ", PrioridadeEnum.MEDIA, 1, 2),
+            new(new string('x', 101), "Erro", PrioridadeEnum.MEDIA, 1, 2),
+            new("Plataforma", "Nova", (PrioridadeEnum)99, 1, 2),
+            new("Plataforma", "Nova", PrioridadeEnum.MEDIA, 0, 2),
+            new("Plataforma", "Nova", PrioridadeEnum.MEDIA, 1, -5),
+            new("Plataforma", "Nova", PrioridadeEnum.MEDIA, 9, 2),
+            new("Plataforma", "Nova", PrioridadeEnum.MEDIA, 1, 24 * 365 + 1),
+        ];
+        foreach (var invalido in invalidos)
+        {
+            await Exigir(await _http.PostAsJsonAsync("/api/SlaCategorias", invalido), HttpStatusCode.BadRequest);
+            await Exigir(await _http.PutAsJsonAsync($"/api/SlaCategorias/{idRegraLivre}", invalido), HttpStatusCode.BadRequest);
+        }
+
+        // Duplicidade ignora maiúsculas/minúsculas e espaços nas pontas
+        await Exigir(await _http.PostAsJsonAsync("/api/SlaCategorias",
+            new SalvarSlaCategoriaDto(" plataforma ", "ERRO", PrioridadeEnum.MEDIA, 1, 2)), HttpStatusCode.Conflict);
+        await Exigir(await _http.PutAsJsonAsync($"/api/SlaCategorias/{idRegraLivre}",
+            new SalvarSlaCategoriaDto("Plataforma", "Erro", PrioridadeEnum.MEDIA, 1, 2)), HttpStatusCode.Conflict);
+        // Salvar a regra com a própria combinação não conta como duplicidade
+        await Exigir(await _http.PutAsJsonAsync($"/api/SlaCategorias/{idRegraLivre}",
+            new SalvarSlaCategoriaDto("Plataforma", "Acesso", PrioridadeEnum.BAIXA, 10, 80)), HttpStatusCode.OK);
+
+        await Exigir(await _http.PutAsJsonAsync("/api/SlaCategorias/999999",
+            new SalvarSlaCategoriaDto("Plataforma", "Nova", PrioridadeEnum.MEDIA, 1, 2)), HttpStatusCode.NotFound);
+        await Exigir(await _http.GetAsync("/api/SlaCategorias/999999"), HttpStatusCode.NotFound);
+
+        // Regra em uso: não pode ser excluída, e editar os tempos não mexe no prazo do chamado já aberto
+        await Exigir(await _http.DeleteAsync($"/api/SlaCategorias/{idRegraEmUso}"), HttpStatusCode.Conflict);
+        var emUso = await _http.GetFromJsonAsync<JsonElement>($"/api/SlaCategorias/{idRegraEmUso}");
+        Assert.Equal(1, emUso.GetProperty("chamadosVinculados").GetInt32());
+
+        using var verificacao = _app.Services.CreateScope();
+        var context = verificacao.ServiceProvider.GetRequiredService<AppDbContext>();
+        var prazoAntes = (await context.Chamados.AsNoTracking().SingleAsync(c => c.Id == idChamado)).PrazoResolucao;
+        await Exigir(await _http.PutAsJsonAsync($"/api/SlaCategorias/{idRegraEmUso}",
+            new SalvarSlaCategoriaDto("Plataforma", "Erro", PrioridadeEnum.MEDIA, 5, 50)), HttpStatusCode.OK);
+        Assert.Equal(prazoAntes, (await context.Chamados.AsNoTracking().SingleAsync(c => c.Id == idChamado)).PrazoResolucao);
+        Assert.Equal(12, await context.SLACategorias.CountAsync());
+        var livre = await context.SLACategorias.AsNoTracking().SingleAsync(s => s.Id == idRegraLivre);
+        Assert.Equal((10, 80), (livre.TempoResposta, livre.TempoResolucao));
+    }
+
+    [Fact]
+    public async Task ChamadoResolvidoFicaTravadoESoPodeSerFechado()
+    {
+        var id = await CriarChamado();
+        int agenteId;
+        using (var scope = _app.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            agenteId = await db.Usuarios.Where(u => u.Papel == PapelEnum.AGENTE).Select(u => u.Id).SingleAsync();
+        }
+
+        await Login("admin");
+        await Exigir(await _http.PatchAsJsonAsync($"/api/Chamados/{id}/status",
+            new AlterarStatusChamadoDto(StatusEnum.RESOLVIDO, null)), HttpStatusCode.OK);
+
+        async Task ExigirTravado()
+        {
+            foreach (var usuario in new[] { "admin", "cliente" })
+            {
+                await Login(usuario);
+                await Exigir(await _http.PostAsJsonAsync($"/api/Chamados/{id}/interacoes",
+                    new CriarInteracaoDto("Depois de resolvido", TipoInteracaoEnum.PUBLICA, null)), HttpStatusCode.Conflict);
+                using var form = new MultipartFormDataContent();
+                var arquivo = new ByteArrayContent(Encoding.UTF8.GetBytes("conteudo"));
+                arquivo.Headers.ContentType = new MediaTypeHeaderValue("text/plain");
+                form.Add(arquivo, "arquivos", "tardio.txt");
+                await Exigir(await _http.PostAsync($"/api/Chamados/{id}/anexos", form), HttpStatusCode.Conflict);
+            }
+            await Login("admin");
+            await Exigir(await _http.PostAsJsonAsync($"/api/Chamados/{id}/interacoes",
+                new CriarInteracaoDto("Nota tardia", TipoInteracaoEnum.NOTA_INTERNA, null)), HttpStatusCode.Conflict);
+            await Exigir(await _http.PatchAsJsonAsync($"/api/Chamados/{id}/atribuir", agenteId), HttpStatusCode.Conflict);
+            foreach (var status in new[] { StatusEnum.ABERTO, StatusEnum.EM_ANDAMENTO, StatusEnum.AGUARDANDO_CLIENTE })
+                await Exigir(await _http.PatchAsJsonAsync($"/api/Chamados/{id}/status",
+                    new AlterarStatusChamadoDto(status, "Reabrir")), HttpStatusCode.Conflict);
+        }
+
+        await ExigirTravado();
+
+        using var verificacao = _app.Services.CreateScope();
+        var context = verificacao.ServiceProvider.GetRequiredService<AppDbContext>();
+        var resolvido = await context.Chamados.AsNoTracking().SingleAsync(c => c.Id == id);
+        Assert.Equal(StatusEnum.RESOLVIDO, resolvido.Status);
+        Assert.NotNull(resolvido.ResolvidoEm);
+        Assert.Equal(0, await context.Interacoes.CountAsync(i => i.ChamadoId == id));
+        var logsAposResolver = await context.LogsAuditoria.CountAsync(l => l.ChamadoId == id);
+
+        // Leitura continua liberada e o fechamento é a única alteração aceita
+        await Exigir(await _http.GetAsync($"/api/Chamados/{id}"), HttpStatusCode.OK);
+        await Exigir(await _http.GetAsync($"/api/Chamados/{id}/anexos"), HttpStatusCode.OK);
+        await Login("cliente");
+        await Exigir(await _http.PatchAsJsonAsync($"/api/Chamados/{id}/status",
+            new AlterarStatusChamadoDto(StatusEnum.FECHADO, null)), HttpStatusCode.OK);
+
+        await ExigirTravado();
+
+        var fechado = await context.Chamados.AsNoTracking().SingleAsync(c => c.Id == id);
+        Assert.Equal(StatusEnum.FECHADO, fechado.Status);
+        Assert.Equal(0, await context.Interacoes.CountAsync(i => i.ChamadoId == id));
+        Assert.Equal(logsAposResolver + 1, await context.LogsAuditoria.CountAsync(l => l.ChamadoId == id));
+    }
+
     private async Task Login(string usuario)
     {
         var response = await _http.PostAsJsonAsync("/api/Auth/login", new LoginDto(usuario + "@test.invalid"));

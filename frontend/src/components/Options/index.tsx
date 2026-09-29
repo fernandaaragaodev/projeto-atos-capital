@@ -8,6 +8,14 @@ import AddIcon from '@mui/icons-material/Add';
 import { useTranslation } from 'react-i18next';
 import { useApp, type UseOptionsParams } from './useApp';
 
+const secondaryButtonSx = {
+  border: '1px solid',
+  borderColor: 'divider',
+  borderRadius: 1,
+  color: 'text.primary',
+  '&:hover': { borderColor: 'primary.main', color: 'primary.main' },
+} as const;
+
 interface OptionsProps extends UseOptionsParams {
   primaryActionLabel?: string;
   onPrimaryAction?: () => void;
@@ -22,6 +30,14 @@ export function Options({ primaryActionLabel, onPrimaryAction, ...rest }: Option
   const { t } = useTranslation();
   const { searchTerm, handleSearchChange, handleReload, handleToggleFilters, handleToggleColumns, handleExport } =
     useApp(rest);
+
+  // Só aparecem as ações que a tela realmente trata (sem botões "mortos").
+  const secondaryActions = [
+    { key: 'reload', icon: RefreshIcon, onClick: handleReload, enabled: Boolean(rest.onReload) },
+    { key: 'filters', icon: FilterListIcon, onClick: handleToggleFilters, enabled: Boolean(rest.onToggleFilters) },
+    { key: 'columns', icon: ViewColumnIcon, onClick: handleToggleColumns, enabled: Boolean(rest.onToggleColumns) },
+    { key: 'export', icon: FileDownloadIcon, onClick: handleExport, enabled: Boolean(rest.onExport) },
+  ].filter((action) => action.enabled);
 
   return (
     <Box
@@ -56,29 +72,13 @@ export function Options({ primaryActionLabel, onPrimaryAction, ...rest }: Option
           sx={{ minWidth: 240 }}
         />
 
-        <Tooltip title={t('table.reload') ?? ''}>
-          <IconButton onClick={handleReload} size="small">
-            <RefreshIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-
-        <Tooltip title={t('table.filters') ?? ''}>
-          <IconButton onClick={handleToggleFilters} size="small">
-            <FilterListIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-
-        <Tooltip title={t('table.columns') ?? ''}>
-          <IconButton onClick={handleToggleColumns} size="small">
-            <ViewColumnIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-
-        <Tooltip title={t('table.export') ?? ''}>
-          <IconButton onClick={handleExport} size="small">
-            <FileDownloadIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        {secondaryActions.map(({ key, icon: Icon, onClick }) => (
+          <Tooltip key={key} title={t(`table.${key}`) ?? ''}>
+            <IconButton onClick={onClick} size="small" aria-label={t(`table.${key}`) ?? key} sx={secondaryButtonSx}>
+              <Icon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        ))}
       </Box>
     </Box>
   );

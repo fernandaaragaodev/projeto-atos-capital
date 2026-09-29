@@ -1,5 +1,9 @@
 import { Box, Stack, Typography } from '@mui/material';
 import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import InboxOutlinedIcon from '@mui/icons-material/InboxOutlined';
+import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
+import ListAltIcon from '@mui/icons-material/ListAlt';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import { useNavigate } from 'react-router-dom';
 import { Options } from '@/components/Options';
 import { ResumeBar } from '@/components/ResumeBar';
@@ -21,6 +25,10 @@ export function Chamados() {
     setSearchTerm,
     activeFilters,
     removeFilter,
+    isFilterActive,
+    semFiltros,
+    applyQuickFilter,
+    clearFilters,
     modalOpen,
     openNewModal,
     closeModal,
@@ -80,10 +88,37 @@ export function Chamados() {
 
       <ResumeBar
         items={[
-          { label: 'Em aberto', value: resumo.abertos },
-          { label: 'Aguardando cliente', value: resumo.aguardandoCliente, color: 'warning' },
-          { label: 'SLA estourado', value: resumo.estourados, color: 'error' },
-          { label: 'Total histórico', value: resumo.total },
+          {
+            label: 'Em aberto',
+            value: resumo.abertos,
+            color: 'info',
+            icon: InboxOutlinedIcon,
+            onClick: () => applyQuickFilter('status-aberto'),
+            active: isFilterActive('status-aberto'),
+          },
+          {
+            label: 'Aguardando cliente',
+            value: resumo.aguardandoCliente,
+            color: 'warning',
+            icon: HourglassEmptyIcon,
+            onClick: () => applyQuickFilter('status-aguardando-cliente'),
+            active: isFilterActive('status-aguardando-cliente'),
+          },
+          {
+            label: 'SLA estourado',
+            value: resumo.estourados,
+            color: 'error',
+            icon: WarningAmberIcon,
+            onClick: () => applyQuickFilter('sla-estourado'),
+            active: isFilterActive('sla-estourado'),
+          },
+          {
+            label: 'Total histórico',
+            value: resumo.total,
+            icon: ListAltIcon,
+            onClick: clearFilters,
+            active: semFiltros,
+          },
         ]}
       />
 
@@ -101,7 +136,9 @@ export function Chamados() {
         columns={columns}
         rows={chamados}
         getRowId={(row) => row.id}
-        actions={[{ label: 'Ver detalhes', onClick: (row) => navigate(`/chamados/${row.id}`) }]}
+        actions={[
+          { label: 'Ver detalhes', icon: VisibilityOutlinedIcon, onClick: (row) => navigate(`/chamados/${row.id}`) },
+        ]}
       />
 
       <NovoChamadoModal open={modalOpen} onClose={closeModal} onSubmit={createChamado} />

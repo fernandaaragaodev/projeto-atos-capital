@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Box, Button, Stack, TextField, ToggleButton, ToggleButtonGroup } from '@mui/material';
 import SendIcon from '@mui/icons-material/Send';
+import ForumOutlinedIcon from '@mui/icons-material/ForumOutlined';
+import StickyNote2OutlinedIcon from '@mui/icons-material/StickyNote2Outlined';
 
 interface NovaInteracaoFormProps {
   onSubmit: (mensagem: string, tipo: 'publica' | 'nota_interna') => void;
@@ -26,8 +28,14 @@ export function NovaInteracaoForm({ onSubmit }: NovaInteracaoFormProps) {
         onChange={(_, value) => value && setTipo(value)}
         sx={{ mb: 1.5 }}
       >
-        <ToggleButton value="publica">Responder ao cliente</ToggleButton>
-        <ToggleButton value="nota_interna">Nota interna</ToggleButton>
+        <ToggleButton value="publica" sx={{ gap: 0.75 }}>
+          <ForumOutlinedIcon fontSize="small" />
+          Responder ao cliente
+        </ToggleButton>
+        <ToggleButton value="nota_interna" sx={{ gap: 0.75 }}>
+          <StickyNote2OutlinedIcon fontSize="small" />
+          Nota interna
+        </ToggleButton>
       </ToggleButtonGroup>
 
       <TextField
@@ -43,7 +51,12 @@ export function NovaInteracaoForm({ onSubmit }: NovaInteracaoFormProps) {
       />
 
       <Stack direction="row" justifyContent="flex-end" sx={{ mt: 1.5 }}>
-        <Button variant="contained" size="small" startIcon={<SendIcon />} onClick={handleSubmit}>
+        <Button
+          variant="contained"
+          startIcon={tipo === 'publica' ? <SendIcon /> : <StickyNote2OutlinedIcon />}
+          onClick={handleSubmit}
+          disabled={!mensagem.trim()}
+        >
           {tipo === 'publica' ? 'Enviar resposta' : 'Salvar nota'}
         </Button>
       </Stack>

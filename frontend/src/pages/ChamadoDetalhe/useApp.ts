@@ -3,7 +3,7 @@ import { notify } from '@/utils/notify';
 import { useAuth } from '@/auth/AuthContext';
 import { AGENTES } from '@/pages/Chamados/useApp';
 import type { Chamado, ChamadoStatus, Interacao, LogAuditoria } from '@/types/chamado';
-import { statusLabel } from '@/types/chamado';
+import { STATUS_TRAVADOS, TRANSICOES_PERMITIDAS, statusLabel } from '@/types/chamado';
 
 // Reaproveita o mesmo mock da fila para manter os dados consistentes durante a navegação.
 import { useApp as useChamadosApp } from '@/pages/Chamados/useApp';
@@ -37,7 +37,7 @@ const mockInteracoes: Record<string, Interacao[]> = {
   ],
 };
 
-const mockAuditoria: Record<string, LogAuditoria[]> = {
+const mockHistorico: Record<string, LogAuditoria[]> = {
   '1': [
     {
       id: 'a1',
@@ -76,7 +76,7 @@ export function useApp(chamadoId: string | undefined) {
   const user = usuarioLogado!;
   const { chamados: todosChamados } = useChamadosApp();
   const [interacoesPorChamado, setInteracoesPorChamado] = useState(mockInteracoes);
-  const [auditoriaPorChamado, setAuditoriaPorChamado] = useState(mockAuditoria);
+  const [historicoPorChamado, setHistoricoPorChamado] = useState(mockHistorico);
   const [statusOverride, setStatusOverride] = useState<Record<string, ChamadoStatus>>({});
   const [agenteOverride, setAgenteOverride] = useState<Record<string, string>>({});
 
@@ -98,9 +98,13 @@ export function useApp(chamadoId: string | undefined) {
   }, [chamadoBase, statusOverride, agenteOverride]);
 
   const interacoes = chamadoId ? interacoesPorChamado[chamadoId] ?? [] : [];
-  const auditoria = chamadoId ? auditoriaPorChamado[chamadoId] ?? [] : [];
+  const historico = chamadoId ? historicoPorChamado[chamadoId] ?? [] : [];
 
-  const registrarAuditoria = (log: Omit<LogAuditoria, 'id' | 'chamadoId' | 'data'>) => {
+  // Depois de resolvido o chamado fica travado: só aceita o fechamento (mesma regra do backend).
+  const travado = chamado ? STATUS_TRAVADOS.includes(chamado.status) : false;
+  const proximosStatus = chamado ? TRANSICOES_PERMITIDAS[chamado.status] : [];
+
+  const registrarHistorico = (log: Omit<LogAuditoria, 'id' | 'chamadoId' | 'data'>) => {
     if (!chamadoId) return;
     const novo: LogAuditoria = {
       ...log,
@@ -108,11 +112,15 @@ export function useApp(chamadoId: string | undefined) {
       chamadoId,
       data: new Date().toISOString(),
     };
-    setAuditoriaPorChamado((prev) => ({ ...prev, [chamadoId]: [...(prev[chamadoId] ?? []), novo] }));
+    setHistoricoPorChamado((prev) => ({ ...prev, [chamadoId]: [...(prev[chamadoId] ?? []), novo] }));
   };
 
+  const avisarTravado = () =>
+    notify.warning(`Chamado ${statusLabel[chamado!.status].toLowerCase()} está travado e não aceita alterações.`);
+
   const enviarInteracao = (mensagem: string, tipo: 'publica' | 'nota_interna') => {
-    if (!chamadoId) return;
+    if (!chamadoId || !chamado) return;
+    if (travado) return avisarTravado();
     const nova: Interacao = {
       id: `i-${Date.now()}`,
       chamadoId,
@@ -127,9 +135,13 @@ export function useApp(chamadoId: string | undefined) {
 
   const alterarStatus = (novoStatus: ChamadoStatus) => {
     if (!chamadoId || !chamado) return;
+    if (!TRANSICOES_PERMITIDAS[chamado.status].includes(novoStatus)) {
+      notify.warning(`Não é possível mudar de "${statusLabel[chamado.status]}" para "${statusLabel[novoStatus]}".`);
+      return;
+    }
     const statusAnterior = chamado.status;
     setStatusOverride((prev) => ({ ...prev, [chamadoId]: novoStatus }));
-    registrarAuditoria({
+    registrarHistorico({
       usuario: user.nome,
       acao: 'Status alterado',
       campoAlterado: 'status',
@@ -140,10 +152,11 @@ export function useApp(chamadoId: string | undefined) {
   };
 
   const atribuirAgente = (agenteId: string) => {
-    if (!chamadoId) return;
+    if (!chamadoId || !chamado) return;
+    if (travado) return avisarTravado();
     const agente = AGENTES.find((a) => a.id === agenteId);
     setAgenteOverride((prev) => ({ ...prev, [chamadoId]: agenteId }));
-    registrarAuditoria({
+    registrarHistorico({
       usuario: user.nome,
       acao: 'Atribuição de agente',
       campoAlterado: 'agente',
@@ -153,5 +166,5 @@ export function useApp(chamadoId: string | undefined) {
     notify.success(`Chamado atribuído a ${agente?.nome}`);
   };
 
-  return { chamado, interacoes, auditoria, enviarInteracao, alterarStatus, atribuirAgente };
+  return { chamado, interacoes, historico, travado, proximosStatus, enviarInteracao, alterarStatus, atribuirAgente };
 }

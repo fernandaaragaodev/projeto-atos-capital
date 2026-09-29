@@ -96,6 +96,3 @@ export async function adicionarInteracao(id: number | string, mensagem: string, 
   const dto = await request<ApiInteracao>(`/api/Chamados/${id}/interacoes`, { method: 'POST', body });
   return interacaoFromApi(dto);
 }
-
-// slaCategorias(): sem endpoint correspondente no backend ainda (só existe internamente, usado ao
-// criar um chamado). Fica pendente até o backend expor uma listagem das regras de SLA.
